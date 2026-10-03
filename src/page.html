@@ -1,0 +1,372 @@
+<title>三體星系模擬器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700;900&family=Syne:wght@600;700;800&display=swap">
+<style>
+/* 版面概念：全螢幕 3D 觀測窗，左右兩片玻璃儀表板浮在星空上；手機改為底部抽屜 */
+:root{
+  --bg:#060810; --glass:rgba(9,12,22,.80); --glass-hi:rgba(16,21,38,.94); --well:#0c0f1a; --well2:#0f1422;
+  --line:rgba(106,184,255,.16); --line-soft:rgba(221,227,245,.07);
+  --fg:#ffffff; --fg2:#dde3f5; --mute:#8a93b0; --dim:#5b6380;
+  --green:#3dffa0; --yellow:#ffcc44; --blue:#6ab8ff; --red:#ff5d6c; --pink:#ff7ad9;
+  --f-display:'Syne','Noto Sans TC',system-ui,sans-serif; --f-body:'Noto Sans TC',system-ui,-apple-system,sans-serif; --f-mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --r:12px; --sheetH:38vh;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;overflow:hidden;-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box}
+button,select,input{font:inherit;color:inherit}
+#app{position:fixed;inset:0;padding-top:env(safe-area-inset-top,0px)}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#gl:active{cursor:grabbing}
+#fade{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .35s ease;z-index:30}
+#fade.on{opacity:1}
+
+/* ---------- 頂部列 ---------- */
+#top{position:absolute;left:12px;right:12px;top:calc(10px + env(safe-area-inset-top,0px));display:flex;align-items:center;gap:14px;z-index:20;
+  background:var(--glass);border:1px solid var(--line);border-radius:var(--r);padding:8px 10px 8px 12px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.brand{display:flex;align-items:center;gap:10px;min-width:0;flex-shrink:0}
+.brand svg{width:34px;height:34px;flex-shrink:0}
+.brand b{display:block;font-family:var(--f-body);font-weight:900;font-size:17px;letter-spacing:.12em;line-height:1.1}
+.brand span{display:block;font-family:var(--f-display);font-weight:700;font-size:9.5px;letter-spacing:.22em;color:var(--mute);margin-top:3px;white-space:nowrap}
+.ctl{display:flex;align-items:center;gap:6px;margin-left:auto;min-width:0;overflow-x:auto;scrollbar-width:none}
+.ctl::-webkit-scrollbar{display:none}
+.btn{background:var(--well);border:1px solid var(--line-soft);border-radius:8px;padding:7px 11px;font-size:12.5px;color:var(--fg2);cursor:pointer;white-space:nowrap;transition:border-color .15s,background .15s,color .15s}
+.btn:hover{border-color:var(--line);color:var(--fg)}
+.btn:focus-visible,select:focus-visible,input:focus-visible,.chip:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.btn.on{color:#06110b;background:var(--green);border-color:var(--green)}
+.btn.play{background:var(--yellow);color:#191204;border-color:var(--yellow);font-weight:700;min-width:40px;font-family:var(--f-mono)}
+.btn.ghost{background:transparent}
+select.btn{padding-right:24px;appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--mute) 50%),linear-gradient(135deg,var(--mute) 50%,transparent 50%);background-position:calc(100% - 13px) 52%,calc(100% - 8px) 52%;background-size:5px 5px;background-repeat:no-repeat}
+select.btn option{background:var(--well2)}
+.speed{display:flex;align-items:center;gap:8px;padding:0 6px}
+.speed input{width:110px;accent-color:var(--yellow)}
+.speed output{font-family:var(--f-mono);font-size:11.5px;color:var(--fg2);min-width:78px;font-variant-numeric:tabular-nums}
+.sep{width:1px;height:22px;background:var(--line-soft);flex-shrink:0}
+
+/* ---------- 儀表板 ---------- */
+.panel{position:absolute;top:calc(74px + env(safe-area-inset-top,0px));bottom:96px;width:300px;z-index:10;display:flex;flex-direction:column;gap:10px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--line) transparent;padding-bottom:4px}
+#pL{left:12px} #pR{right:12px}
+.card{background:var(--glass);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);flex-shrink:0}
+.eyebrow{display:flex;align-items:center;justify-content:space-between;font-size:11.5px;letter-spacing:.18em;color:var(--mute);font-weight:500;margin-bottom:8px}
+.eyebrow .i{all:unset;cursor:pointer;width:20px;height:20px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;font-family:var(--f-mono);font-size:11px;color:var(--blue);letter-spacing:0}
+.eyebrow .i:hover{background:rgba(106,184,255,.12)}
+.eyebrow .i:focus-visible{outline:2px solid var(--blue)}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.small{font-size:12px;color:var(--fg2);line-height:1.6;margin:0}
+.era-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+#eraName{font-family:var(--f-body);font-weight:900;font-size:40px;letter-spacing:.06em;margin:0;line-height:1.05;color:var(--green);text-shadow:0 0 28px rgba(61,255,160,.35);transition:color .4s,text-shadow .4s}
+#eraName.chaos{color:var(--red);text-shadow:0 0 28px rgba(255,93,108,.4)}
+#eraDur{font-size:12px;color:var(--mute);white-space:nowrap}
+#orbitLine{margin-top:8px}
+.evgrid{display:grid;grid-template-columns:1fr 1fr;gap:5px 10px;margin-top:12px}
+.ev{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--dim);transition:color .2s}
+.ev i{width:8px;height:8px;border-radius:2px;border:1px solid var(--dim);flex-shrink:0}
+.ev.on{color:var(--fg)}
+.ev.on.red i{background:var(--red);border-color:var(--red);box-shadow:0 0 8px var(--red)}
+.ev.on.yellow i{background:var(--yellow);border-color:var(--yellow);box-shadow:0 0 8px var(--yellow)}
+.ev.on.blue i{background:var(--blue);border-color:var(--blue);box-shadow:0 0 8px var(--blue)}
+
+.temp{display:flex;align-items:baseline;gap:4px}
+#tVal{font-family:var(--f-display);font-weight:800;font-size:46px;line-height:1;color:var(--green);font-variant-numeric:tabular-nums}
+.temp small{font-size:15px;color:var(--fg2)}
+.pill{margin-left:auto;font-size:11.5px;padding:3px 9px;border-radius:99px;border:1px solid currentColor;letter-spacing:.08em;white-space:nowrap}
+.pill.g{color:var(--green)} .pill.y{color:var(--yellow)} .pill.r{color:var(--red)} .pill.b{color:var(--blue)} .pill.m{color:var(--mute)}
+.tbar{position:relative;height:30px;margin:12px 0 4px}
+.tbar .scale{position:absolute;left:0;right:0;top:6px;height:5px;border-radius:3px;background:linear-gradient(90deg,#3b5bdb 0%,#6ab8ff 25%,#3dffa0 36%,#ffcc44 50%,#ff8a3d 70%,#ff4060 100%)}
+.tbar .hab{position:absolute;top:2px;height:13px;border:1px solid rgba(61,255,160,.55);border-radius:3px}
+.tbar .mk{position:absolute;top:0;width:2px;height:17px;background:#fff;box-shadow:0 0 6px #fff;transform:translateX(-1px);transition:left .3s}
+.tbar .eq{position:absolute;top:17px;width:0;height:0;border:5px solid transparent;border-bottom-color:var(--yellow);transform:translate(-5px,-4px);transition:left .3s}
+.tbar .lab{position:absolute;top:18px;left:0;right:0;display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:9.5px;color:var(--dim)}
+.rows{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:10px 0 0;font-size:12.5px}
+.rows dt{color:var(--mute)} .rows dd{margin:0;text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums;color:var(--fg2)}
+
+.sun{display:grid;grid-template-columns:22px 1fr auto;gap:2px 8px;align-items:center;padding:7px 0;border-top:1px solid var(--line-soft)}
+.sun:first-of-type{border-top:0}
+.sun .dot{width:14px;height:14px;border-radius:50%;justify-self:center}
+.sun .nm{font-weight:700;font-size:13px}
+.sun .nm em{font-style:normal;font-weight:500;color:var(--yellow);font-size:11.5px;margin-left:4px}
+.sun .tag{font-size:11.5px;color:var(--yellow);font-family:var(--f-mono);text-align:right}
+.sun .tag.fly{color:var(--blue)}
+.sun .meta{grid-column:2/4;display:flex;align-items:center;gap:8px;font-family:var(--f-mono);font-size:11px;color:var(--mute)}
+.sun .bar{flex:1;height:3px;background:var(--well2);border-radius:2px;overflow:hidden}
+.sun .bar b{display:block;height:100%;border-radius:2px;transition:width .3s}
+
+#civTitle{display:flex;align-items:center;gap:8px}
+#civTitle h3{margin:0;font-weight:900;font-size:22px;letter-spacing:.04em}
+#civTitle h3 span{color:var(--yellow);font-family:var(--f-display);font-weight:800}
+#civAge{font-weight:700;font-size:15px;margin:8px 0 6px}
+.segs{display:grid;grid-template-columns:repeat(9,1fr);gap:3px}
+.segs i{height:5px;border-radius:2px;background:var(--well2);position:relative;overflow:hidden}
+.segs i b{position:absolute;inset:0;background:var(--yellow);transform-origin:left;transform:scaleX(0)}
+#civDesc{margin-top:8px;min-height:38px}
+.btnrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.btnrow .btn{text-align:center;padding:9px 8px}
+.btn.cta{background:rgba(255,204,68,.1);border-color:rgba(255,204,68,.4);color:var(--yellow)}
+
+.rtabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;background:var(--glass);border:1px solid var(--line);border-radius:var(--r);padding:4px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);flex-shrink:0}
+.rtabs button{all:unset;text-align:center;padding:7px 4px;border-radius:8px;font-size:12.5px;color:var(--mute);cursor:pointer}
+.rtabs button.on{background:var(--well2);color:var(--fg);box-shadow:inset 0 0 0 1px var(--line)}
+.rtabs button:focus-visible{outline:2px solid var(--blue)}
+#pR .card{display:none} #pR .card.show{display:block}
+canvas.chart{display:block;width:100%;border-radius:8px;background:var(--well)}
+#skyMap{height:150px} #planetThumb{width:100%;aspect-ratio:1.6;height:auto} #divChart{height:150px}
+.cap{font-size:11.5px;color:var(--mute);line-height:1.6;margin:8px 0 0}
+.sub{font-size:11.5px;letter-spacing:.16em;color:var(--mute);margin:16px 0 8px}
+.chron{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:none}
+.chron li{display:grid;grid-template-columns:auto 1fr auto;gap:2px 10px;align-items:center;background:var(--well);border:1px solid var(--line-soft);border-radius:9px;padding:8px 10px}
+.chron .no{font-family:var(--f-display);font-weight:800;font-size:17px;color:var(--yellow);grid-row:1/3}
+.chron .a{font-weight:700;font-size:13px}
+.chron .y{font-family:var(--f-mono);font-size:11px;color:var(--mute);text-align:right}
+.chron .why{grid-column:2/4;font-size:11.5px;color:var(--fg2)}
+.chron .why.red{color:#ff9aa4} .chron .why.green{color:var(--green)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px}
+.stats div{background:var(--well);border-radius:9px;padding:8px;text-align:center}
+.stats b{display:block;font-family:var(--f-display);font-weight:800;font-size:20px}
+.stats span{font-size:10.5px;color:var(--mute)}
+.seg{display:flex;gap:4px;margin:10px 0}
+.seg button{flex:1}
+.empty{font-size:12px;color:var(--mute);padding:10px 0}
+
+/* ---------- 觀測窗上的元件 ---------- */
+#viewbar{position:absolute;top:calc(74px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:12;display:flex;gap:4px;background:var(--glass);border:1px solid var(--line);border-radius:99px;padding:4px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);max-width:calc(100% - 660px);overflow-x:auto;scrollbar-width:none}
+#viewbar::-webkit-scrollbar{display:none}
+.chip{all:unset;padding:6px 12px;border-radius:99px;font-size:12.5px;color:var(--fg2);cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.chip:hover{background:rgba(221,227,245,.06)}
+.chip.on{background:var(--fg);color:#0a0d18;font-weight:700}
+.chip.go{color:var(--yellow)}
+.chip i{width:8px;height:8px;border-radius:50%;display:inline-block}
+#labels{position:absolute;inset:0;pointer-events:none;z-index:5;overflow:hidden}
+.lbl{position:absolute;left:0;top:0;font-size:11.5px;color:var(--fg2);white-space:nowrap;text-shadow:0 1px 3px #000,0 0 8px #000;transform:translate(10px,-50%);will-change:transform}
+.lbl b{font-weight:700;color:var(--fg)} .lbl span{font-family:var(--f-mono);font-size:10.5px;color:var(--mute);margin-left:6px}
+.lbl.pl b{color:var(--blue)}
+#toasts{position:absolute;left:50%;bottom:100px;transform:translateX(-50%);z-index:14;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;width:min(560px,calc(100% - 660px))}
+.toast{background:var(--glass-hi);border:1px solid var(--line);border-left:3px solid var(--blue);border-radius:9px;padding:8px 14px;font-size:12.5px;line-height:1.55;color:var(--fg);box-shadow:0 8px 30px rgba(0,0,0,.4);animation:tin .35s ease;max-width:100%}
+.toast.red{border-left-color:var(--red)} .toast.green{border-left-color:var(--green)} .toast.yellow{border-left-color:var(--yellow)}
+.toast.out{opacity:0;transform:translateY(6px);transition:all .5s}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+#concept{position:absolute;left:324px;bottom:100px;z-index:13;width:320px;background:var(--glass-hi);border:1px solid rgba(61,255,160,.35);border-radius:var(--r);padding:12px 14px;display:none}
+.teach #concept{display:block}
+#concept .k{font-size:11px;letter-spacing:.18em;color:var(--green)}
+#concept h4{margin:4px 0 6px;font-size:16px;font-weight:900}
+#concept p{margin:0;font-size:13px;line-height:1.7;color:var(--fg2)}
+#concept .q{margin-top:8px;font-size:12.5px;color:var(--yellow)}
+#cityHud{position:absolute;right:324px;bottom:100px;z-index:12;font-family:var(--f-mono);font-size:11px;color:var(--mute);background:var(--glass);border:1px solid var(--line-soft);border-radius:8px;padding:6px 10px;display:none}
+.city #cityHud{display:block}
+
+/* ---------- 時間軸 ---------- */
+#tl{position:absolute;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));height:72px;z-index:15;display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;background:var(--glass);border:1px solid var(--line);border-radius:var(--r);padding:8px 14px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+#yr{min-width:120px}
+#yr b{display:block;font-family:var(--f-display);font-weight:800;font-size:22px;font-variant-numeric:tabular-nums;line-height:1.1}
+#yr span{font-family:var(--f-mono);font-size:10.5px;color:var(--mute)}
+#tlCanvas{width:100%;height:46px;display:block;cursor:pointer}
+#tlTip{position:absolute;bottom:80px;transform:translateX(-50%);background:var(--glass-hi);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;max-width:280px;pointer-events:none;display:none;line-height:1.5}
+.tlbtns{display:flex;gap:6px}
+
+/* ---------- 彈窗 ---------- */
+#modal{position:absolute;inset:0;z-index:40;background:rgba(3,5,10,.66);display:grid;place-items:center;padding:16px}
+#modal .box{background:var(--glass-hi);border:1px solid var(--line);border-radius:16px;max-width:560px;width:100%;max-height:84vh;overflow:auto;padding:22px 24px;position:relative}
+#modal h2{font-weight:900;font-size:22px;margin:0 0 4px;letter-spacing:.04em}
+#modal .k{font-family:var(--f-display);font-size:11px;letter-spacing:.22em;color:var(--green)}
+#modal p,#modal li{font-size:13.5px;line-height:1.8;color:var(--fg2)}
+#modal ul{padding-left:18px;margin:6px 0}
+#modal kbd{font-family:var(--f-mono);font-size:11.5px;background:var(--well2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--fg)}
+#modal .q{background:rgba(255,204,68,.08);border-left:3px solid var(--yellow);padding:8px 12px;border-radius:6px;color:var(--fg)}
+#modal .x{position:absolute;right:14px;top:14px}
+#modal table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+#modal td{padding:6px 8px;border-top:1px solid var(--line-soft);color:var(--fg2);background:var(--well)}
+#modal tr:nth-child(even) td{background:var(--well2)}
+
+#mtabs{display:none}
+.teach{--fs:1}
+.teach .panel{font-size:15px}
+.teach .small,.teach .cap{font-size:13px}
+
+/* ---------- 手機：底部抽屜 ---------- */
+@media (max-width:860px){
+  #top{left:8px;right:8px;top:calc(6px + env(safe-area-inset-top,0px));flex-wrap:wrap;gap:6px 8px;padding:7px 8px}
+  .brand b{font-size:15px} .brand span{display:none} .brand svg{width:28px;height:28px}
+  .ctl{flex-basis:100%;margin-left:0}
+  .speed input{width:84px} .speed output{min-width:0;font-size:11px} .sep{display:none} .speed{padding:0 2px}
+  .ctl{mask-image:linear-gradient(90deg,#000 88%,transparent);-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);padding-right:24px}
+  #viewbar{top:calc(100px + env(safe-area-inset-top,0px));max-width:calc(100% - 16px)}
+  .panel{top:auto;left:0!important;right:0!important;width:auto;bottom:calc(52px + env(safe-area-inset-bottom,0px));height:var(--sheetH);padding:0 8px 6px;display:none;gap:8px}
+  .panel.mshow{display:flex}
+  .panel .card{display:none!important}
+  .panel .card.mon{display:block!important;overflow-y:auto;max-height:100%}
+  .rtabs{display:none}
+  body.sheet-closed .panel{display:none!important}
+  #mtabs{display:flex;position:absolute;left:0;right:0;bottom:0;z-index:16;background:var(--glass-hi);border-top:1px solid var(--line);padding:4px 4px calc(4px + env(safe-area-inset-bottom,0px));overflow-x:auto;scrollbar-width:none;gap:2px}
+  #mtabs::-webkit-scrollbar{display:none}
+  #mtabs button{all:unset;flex:1;min-width:52px;text-align:center;padding:9px 4px;border-radius:8px;font-size:12.5px;color:var(--mute)}
+  #mtabs button.on{color:var(--fg);background:var(--well2)}
+  #tl{left:8px;right:8px;bottom:calc(var(--sheetH) + 58px + env(safe-area-inset-bottom,0px));height:58px;grid-template-columns:auto 1fr auto;gap:8px;padding:6px 10px}
+  body.sheet-closed #tl{bottom:calc(58px + env(safe-area-inset-bottom,0px))}
+  #yr{min-width:78px} #yr b{font-size:17px}
+  #tlCanvas{height:36px}
+  #toasts{bottom:calc(var(--sheetH) + 124px);width:calc(100% - 24px)}
+  body.sheet-closed #toasts{bottom:124px}
+  #concept{left:8px;right:8px;width:auto;top:calc(146px + env(safe-area-inset-top,0px));bottom:auto}
+  #cityHud{right:8px;top:calc(146px + env(safe-area-inset-top,0px));bottom:auto}
+  #eraName{font-size:32px}
+  #tlTip{display:none!important}
+}
+
+/* ---------- 開場：選擇模式 ---------- */
+#start{position:absolute;inset:0;z-index:50;display:grid;place-items:center;padding:16px;background:radial-gradient(ellipse at 50% 40%,rgba(6,8,16,.35),rgba(6,8,16,.88) 70%);overflow-y:auto}
+#start .wrap{width:min(920px,100%);display:flex;flex-direction:column;gap:18px;padding-block:24px}
+#start .hd{display:flex;align-items:center;gap:14px}
+#start .hd svg{width:56px;height:56px;flex-shrink:0}
+#start h1{margin:0;font-weight:900;font-size:clamp(26px,5vw,40px);letter-spacing:.12em;line-height:1.1}
+#start .en{font-family:var(--f-display);font-weight:700;font-size:11px;letter-spacing:.3em;color:var(--mute);margin-top:6px}
+#start .lead{margin:0;color:var(--fg2);font-size:14px;line-height:1.7;max-width:60ch}
+#start .lab{font-size:11.5px;letter-spacing:.2em;color:var(--mute)}
+.modes{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.mode{all:unset;cursor:pointer;background:var(--glass);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px;transition:border-color .15s,background .15s,transform .15s;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.mode:hover{border-color:rgba(106,184,255,.45);transform:translateY(-2px)}
+.mode:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.mode.on{border-color:var(--yellow);background:rgba(255,204,68,.08)}
+.mode b{font-size:16px;font-weight:900}
+.mode .tg{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.1em;color:var(--yellow)}
+.mode p{margin:0;font-size:12px;line-height:1.6;color:var(--fg2)}
+.audience{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.go{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+#startBtn{all:unset;cursor:pointer;background:var(--yellow);color:#191204;font-weight:900;font-size:17px;letter-spacing:.12em;padding:14px 34px;border-radius:12px}
+#startBtn:focus-visible{outline:2px solid var(--fg);outline-offset:3px}
+#startBtn:hover{filter:brightness(1.08)}
+.go label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--fg2);cursor:pointer}
+.go input{accent-color:var(--green);width:16px;height:16px}
+@media (max-width:560px){.audience{grid-template-columns:1fr}.modes{grid-template-columns:1fr 1fr}.mode p{display:none}.modes .mode:last-child:nth-child(odd){grid-column:1/-1}}
+@media (min-width:861px){.teach #toasts{left:calc(50% + 175px);width:min(460px,calc(100% - 990px))}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div id="app">
+  <canvas id="gl" aria-label="三體星系 3D 觀測畫面"></canvas>
+  <div id="labels"></div>
+
+  <header id="top">
+    <div class="brand">
+      <svg viewBox="0 0 40 40" aria-hidden="true">
+        <circle cx="9" cy="10" r="5" fill="#141a2c" stroke="#6ab8ff" stroke-width="1.2"/>
+        <circle cx="31" cy="10" r="5" fill="#141a2c" stroke="#6ab8ff" stroke-width="1.2"/>
+        <circle cx="20" cy="22" r="14" fill="#0c0f1a" stroke="#6ab8ff" stroke-width="1.2"/>
+        <ellipse cx="20" cy="22" rx="10" ry="4.2" fill="none" stroke="rgba(221,227,245,.35)" stroke-width=".8" transform="rotate(-18 20 22)"/>
+        <circle cx="12.5" cy="24.5" r="2.6" fill="#ffcc44"/><circle cx="26" cy="18" r="2" fill="#6ab8ff"/><circle cx="23" cy="27.5" r="1.4" fill="#ff7ad9"/>
+      </svg>
+      <div><b>三體星系模擬器</b><span>BLACK BEAR OBSERVATORY</span></div>
+    </div>
+    <div class="ctl">
+      <select id="preset" class="btn" aria-label="星系情境"></select>
+      <button id="play" class="btn play" aria-label="暫停">❚❚</button>
+      <div class="speed"><input id="speed" type="range" min="0" max="100" step="1" aria-label="時間速度"><output id="speedV">1.5 年/秒</output></div>
+      <span class="sep"></span>
+      <button id="restart" class="btn">重新開始</button>
+      <button id="newsys" class="btn">新星系</button>
+      <span class="sep"></span>
+      <button id="teach" class="btn" aria-pressed="false">教學模式</button>
+      <button id="snd" class="btn" aria-pressed="false">聲音</button>
+      <button id="help" class="btn ghost">說明</button>
+    </div>
+  </header>
+
+  <aside id="pL" class="panel">
+    <section class="card" id="cEra">
+      <div class="eyebrow">紀元 <button class="i" data-c="era" aria-label="紀元說明">i</button></div>
+      <div class="era-row"><h2 id="eraName">恆紀元</h2><span id="eraDur" class="mono">已持續 0 年</span></div>
+      <p id="orbitLine" class="small mono">—</p>
+      <div class="evgrid" id="evGrid"></div>
+    </section>
+    <section class="card" id="cPlanet">
+      <div class="eyebrow">三體行星 <button class="i" data-c="flux" aria-label="溫度說明">i</button></div>
+      <div class="temp"><span id="tVal">15</span><small>°C</small><span id="habTag" class="pill g">宜居</span></div>
+      <div class="tbar"><div class="scale"></div><div class="hab" id="tHab"></div><div class="mk" id="tMk"></div><div class="eq" id="tEq"></div>
+        <div class="lab"><span>-200</span><span>-100</span><span>0</span><span>100</span><span>200</span><span>300</span><span>400</span></div></div>
+      <dl class="rows">
+        <dt>總日照</dt><dd id="rS">—</dd>
+        <dt>平衡溫度</dt><dd id="rTeq">—</dd>
+        <dt>一年長度</dt><dd id="rYear">—</dd>
+        <dt>潮汐／重力</dt><dd id="rTide">—</dd>
+      </dl>
+    </section>
+    <section class="card" id="cSuns">
+      <div class="eyebrow">天上的太陽 <button class="i" data-c="fly" aria-label="飛星說明">i</button></div>
+      <div id="sunList"></div>
+    </section>
+    <section class="card" id="cCiv">
+      <div class="eyebrow">文明 <button class="i" data-c="dehyd" aria-label="脫水說明">i</button></div>
+      <div id="civTitle"><h3>第 <span id="civNo">1</span> 號文明</h3><span id="civState" class="pill g">活動中</span></div>
+      <div id="civAge">原始時代</div>
+      <div class="segs" id="segs"></div>
+      <p id="civDesc" class="small">—</p>
+      <dl class="rows">
+        <dt>下一階段</dt><dd id="rNext">—</dd>
+        <dt>文明年數</dt><dd id="rCivY">—</dd>
+        <dt>發展速度</dt><dd id="rRate">—</dd>
+        <dt>脫水次數</dt><dd id="rDehyd">—</dd>
+        <dt>歷代文明</dt><dd id="rHist">—</dd>
+      </dl>
+      <div class="btnrow"><button class="btn cta" id="goCity">近看城市</button><button class="btn" id="goSpace">返回太空</button></div>
+    </section>
+  </aside>
+
+  <aside id="pR" class="panel">
+    <div class="rtabs" role="tablist"><button data-r="cObs" class="on">觀測</button><button data-r="cChron">編年史</button><button data-r="cChaos">混沌實驗</button></div>
+    <section class="card show" id="cObs">
+      <div class="eyebrow">從行星上看出去的全天 <button class="i" data-c="sky" aria-label="全天圖說明">i</button></div>
+      <canvas id="skyMap" class="chart"></canvas>
+      <p class="cap">站在城市裡看天空：橫軸是方位，縱軸是仰角，虛線是地平線。主太陽畫出規律的弧線；路徑交纏亂繞，就是亂紀元。</p>
+      <div class="sub">行星的樣子</div>
+      <canvas id="planetThumb" class="chart"></canvas>
+      <p class="cap" id="planetCap">—</p>
+    </section>
+    <section class="card" id="cChron">
+      <div class="eyebrow">文明編年史 <button class="i" data-c="chron" aria-label="編年史說明">i</button></div>
+      <div class="stats"><div><b id="stTotal">0</b><span>文明總數</span></div><div><b id="stBest" style="color:var(--yellow)">—</b><span>最高時代</span></div><div><b id="stLong" style="color:var(--green)">0</b><span>最長存續（年）</span></div></div>
+      <ul class="chron" id="chronList"></ul>
+    </section>
+    <section class="card" id="cChaos">
+      <div class="eyebrow">混沌實驗 <button class="i" data-c="chaos" aria-label="混沌說明">i</button></div>
+      <p class="small">複製一個雙胞胎宇宙，只把太陽乙的位置挪動一點點，看兩個宇宙多久之後走上完全不同的路。粉紅色軌跡就是雙胞胎。</p>
+      <div class="seg" id="deltaSeg"><button class="btn" data-d="1e-3">1/1000 AU</button><button class="btn on" data-d="1e-6">百萬分之一</button><button class="btn" data-d="1e-9">十億分之一</button></div>
+      <button class="btn cta" id="twinBtn" style="width:100%">開始雙胞胎實驗</button>
+      <canvas id="divChart" class="chart" style="margin-top:12px"></canvas>
+      <p class="cap" id="divCap">尚未開始。挪動量越小，分歧來得越晚，但終究會來。</p>
+    </section>
+  </aside>
+
+  <nav id="viewbar" aria-label="觀察目標"></nav>
+  <div id="toasts" aria-live="polite"></div>
+  <div id="concept"><div class="k">課堂概念</div><h4 id="cpT">—</h4><p id="cpP">—</p><div class="q" id="cpQ"></div></div>
+  <div id="cityHud"></div>
+
+  <footer id="tl">
+    <div id="yr"><b id="yrV">第 0.0 年</b><span id="yrS">每秒 1.5 年</span></div>
+    <canvas id="tlCanvas" aria-label="時間軸，點擊可回到過去的時刻"></canvas>
+    <div class="tlbtns"><button class="btn" id="prevEv" title="回到上一個重大事件">⏮ 事件</button></div>
+    <div id="tlTip"></div>
+  </footer>
+
+  <nav id="mtabs" aria-label="資訊面板"></nav>
+
+  <div id="start">
+    <div class="wrap">
+      <div class="hd">
+        <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="9" cy="10" r="5" fill="#141a2c" stroke="#6ab8ff" stroke-width="1.2"/><circle cx="31" cy="10" r="5" fill="#141a2c" stroke="#6ab8ff" stroke-width="1.2"/><circle cx="20" cy="22" r="14" fill="#0c0f1a" stroke="#6ab8ff" stroke-width="1.2"/><ellipse cx="20" cy="22" rx="10" ry="4.2" fill="none" stroke="rgba(221,227,245,.35)" stroke-width=".8" transform="rotate(-18 20 22)"/><circle cx="12.5" cy="24.5" r="2.6" fill="#ffcc44"/><circle cx="26" cy="18" r="2" fill="#6ab8ff"/><circle cx="23" cy="27.5" r="1.4" fill="#ff7ad9"/></svg>
+        <div><h1>三體星系模擬器</h1><div class="en">BLACK BEAR OBSERVATORY</div></div>
+      </div>
+      <p class="lead">三顆太陽、一顆行星、一個不斷重來的文明。選一個星系，按下開始，看文明能不能撐到飛出星系的那一天。</p>
+      <div class="lab">選擇星系</div>
+      <div class="modes" id="startModes"></div>
+      <div class="lab">選擇使用方式</div>
+      <div class="audience" id="startAud">
+        <button class="mode on" data-a="show"><span class="tg">EXHIBIT</span><b>展示模式</b><p>畫面乾淨，專心看天象與城市興衰。</p></button>
+        <button class="mode" data-a="teach"><span class="tg">CLASSROOM</span><b>教學模式</b><p>依畫面上發生的事，自動跳出概念卡與課堂提問。</p></button>
+      </div>
+      <div class="go"><button id="startBtn">開始觀測</button><label><input type="checkbox" id="startSnd" checked> 開啟太空環境音</label></div>
+    </div>
+  </div>
+  <div id="fade"></div>
+  <div id="modal" hidden><div class="box" role="dialog" aria-modal="true"><button class="btn x" id="mClose">關閉</button><div id="mBody"></div></div></div>
+</div>

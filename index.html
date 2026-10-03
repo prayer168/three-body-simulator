@@ -1,0 +1,2509 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="三顆恆星的真實重力模擬，行星氣候與城市文明在恆紀元與亂紀元中興衰輪迴。黑熊老師自然科學數位教材。">
+<link rel="icon" href="https://prayer168.github.io/science-portal/favicon.png">
+<title>三體星系模擬器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700;900&family=Syne:wght@600;700;800&display=swap">
+<style>
+/* 版面概念：全螢幕 3D 觀測窗，左右兩片玻璃儀表板浮在星空上；手機改為底部抽屜 */
+:root{
+  --bg:#060810; --glass:rgba(9,12,22,.80); --glass-hi:rgba(16,21,38,.94); --well:#0c0f1a; --well2:#0f1422;
+  --line:rgba(106,184,255,.16); --line-soft:rgba(221,227,245,.07);
+  --fg:#ffffff; --fg2:#dde3f5; --mute:#8a93b0; --dim:#5b6380;
+  --green:#3dffa0; --yellow:#ffcc44; --blue:#6ab8ff; --red:#ff5d6c; --pink:#ff7ad9;
+  --f-display:'Syne','Noto Sans TC',system-ui,sans-serif; --f-body:'Noto Sans TC',system-ui,-apple-system,sans-serif; --f-mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --r:12px; --sheetH:38vh;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;overflow:hidden;-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box}
+button,select,input{font:inherit;color:inherit}
+#app{position:fixed;inset:0;padding-top:env(safe-area-inset-top,0px)}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#gl:active{cursor:grabbing}
+#fade{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .35s ease;z-index:30}
+#fade.on{opacity:1}
+
+/* ---------- 頂部列 ---------- */
+#top{position:absolute;left:12px;right:12px;top:calc(10px + env(safe-area-inset-top,0px));display:flex;align-items:center;gap:14px;z-index:20;
+  background:var(--glass);border:1px solid var(--line);border-radius:var(--r);padding:8px 10px 8px 12px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.brand{display:flex;align-items:center;gap:10px;min-width:0;flex-shrink:0}
+.brand svg{width:34px;height:34px;flex-shrink:0}
+.brand b{display:block;font-family:var(--f-body);font-weight:900;font-size:17px;letter-spacing:.12em;line-height:1.1}
+.brand span{display:block;font-family:var(--f-display);font-weight:700;font-size:9.5px;letter-spacing:.22em;color:var(--mute);margin-top:3px;white-space:nowrap}
+.ctl{display:flex;align-items:center;gap:6px;margin-left:auto;min-width:0;overflow-x:auto;scrollbar-width:none}
+.ctl::-webkit-scrollbar{display:none}
+.btn{background:var(--well);border:1px solid var(--line-soft);border-radius:8px;padding:7px 11px;font-size:12.5px;color:var(--fg2);cursor:pointer;white-space:nowrap;transition:border-color .15s,background .15s,color .15s}
+.btn:hover{border-color:var(--line);color:var(--fg)}
+.btn:focus-visible,select:focus-visible,input:focus-visible,.chip:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.btn.on{color:#06110b;background:var(--green);border-color:var(--green)}
+.btn.play{background:var(--yellow);color:#191204;border-color:var(--yellow);font-weight:700;min-width:40px;font-family:var(--f-mono)}
+.btn.ghost{background:transparent}
+select.btn{padding-right:24px;appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--mute) 50%),linear-gradient(135deg,var(--mute) 50%,transparent 50%);background-position:calc(100% - 13px) 52%,calc(100% - 8px) 52%;background-size:5px 5px;background-repeat:no-repeat}
+select.btn option{background:var(--well2)}
+.speed{display:flex;align-items:center;gap:8px;padding:0 6px}
+.speed input{width:110px;accent-color:var(--yellow)}
+.speed output{font-family:var(--f-mono);font-size:11.5px;color:var(--fg2);min-width:78px;font-variant-numeric:tabular-nums}
+.sep{width:1px;height:22px;background:var(--line-soft);flex-shrink:0}
+
+/* ---------- 儀表板 ---------- */
+.panel{position:absolute;top:calc(74px + env(safe-area-inset-top,0px));bottom:96px;width:300px;z-index:10;display:flex;flex-direction:column;gap:10px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--line) transparent;padding-bottom:4px}
+#pL{left:12px} #pR{right:12px}
+.card{background:var(--glass);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);flex-shrink:0}
+.eyebrow{display:flex;align-items:center;justify-content:space-between;font-size:11.5px;letter-spacing:.18em;color:var(--mute);font-weight:500;margin-bottom:8px}
+.eyebrow .i{all:unset;cursor:pointer;width:20px;height:20px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;font-family:var(--f-mono);font-size:11px;color:var(--blue);letter-spacing:0}
+.eyebrow .i:hover{background:rgba(106,184,255,.12)}
+.eyebrow .i:focus-visible{outline:2px solid var(--blue)}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.small{font-size:12px;color:var(--fg2);line-height:1.6;margin:0}
+.era-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+#eraName{font-family:var(--f-body);font-weight:900;font-size:40px;letter-spacing:.06em;margin:0;line-height:1.05;color:var(--green);text-shadow:0 0 28px rgba(61,255,160,.35);transition:color .4s,text-shadow .4s}
+#eraName.chaos{color:var(--red);text-shadow:0 0 28px rgba(255,93,108,.4)}
+#eraDur{font-size:12px;color:var(--mute);white-space:nowrap}
+#orbitLine{margin-top:8px}
+.evgrid{display:grid;grid-template-columns:1fr 1fr;gap:5px 10px;margin-top:12px}
+.ev{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--dim);transition:color .2s}
+.ev i{width:8px;height:8px;border-radius:2px;border:1px solid var(--dim);flex-shrink:0}
+.ev.on{color:var(--fg)}
+.ev.on.red i{background:var(--red);border-color:var(--red);box-shadow:0 0 8px var(--red)}
+.ev.on.yellow i{background:var(--yellow);border-color:var(--yellow);box-shadow:0 0 8px var(--yellow)}
+.ev.on.blue i{background:var(--blue);border-color:var(--blue);box-shadow:0 0 8px var(--blue)}
+
+.temp{display:flex;align-items:baseline;gap:4px}
+#tVal{font-family:var(--f-display);font-weight:800;font-size:46px;line-height:1;color:var(--green);font-variant-numeric:tabular-nums}
+.temp small{font-size:15px;color:var(--fg2)}
+.pill{margin-left:auto;font-size:11.5px;padding:3px 9px;border-radius:99px;border:1px solid currentColor;letter-spacing:.08em;white-space:nowrap}
+.pill.g{color:var(--green)} .pill.y{color:var(--yellow)} .pill.r{color:var(--red)} .pill.b{color:var(--blue)} .pill.m{color:var(--mute)}
+.tbar{position:relative;height:30px;margin:12px 0 4px}
+.tbar .scale{position:absolute;left:0;right:0;top:6px;height:5px;border-radius:3px;background:linear-gradient(90deg,#3b5bdb 0%,#6ab8ff 25%,#3dffa0 36%,#ffcc44 50%,#ff8a3d 70%,#ff4060 100%)}
+.tbar .hab{position:absolute;top:2px;height:13px;border:1px solid rgba(61,255,160,.55);border-radius:3px}
+.tbar .mk{position:absolute;top:0;width:2px;height:17px;background:#fff;box-shadow:0 0 6px #fff;transform:translateX(-1px);transition:left .3s}
+.tbar .eq{position:absolute;top:17px;width:0;height:0;border:5px solid transparent;border-bottom-color:var(--yellow);transform:translate(-5px,-4px);transition:left .3s}
+.tbar .lab{position:absolute;top:18px;left:0;right:0;display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:9.5px;color:var(--dim)}
+.rows{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:10px 0 0;font-size:12.5px}
+.rows dt{color:var(--mute)} .rows dd{margin:0;text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums;color:var(--fg2)}
+
+.sun{display:grid;grid-template-columns:22px 1fr auto;gap:2px 8px;align-items:center;padding:7px 0;border-top:1px solid var(--line-soft)}
+.sun:first-of-type{border-top:0}
+.sun .dot{width:14px;height:14px;border-radius:50%;justify-self:center}
+.sun .nm{font-weight:700;font-size:13px}
+.sun .nm em{font-style:normal;font-weight:500;color:var(--yellow);font-size:11.5px;margin-left:4px}
+.sun .tag{font-size:11.5px;color:var(--yellow);font-family:var(--f-mono);text-align:right}
+.sun .tag.fly{color:var(--blue)}
+.sun .meta{grid-column:2/4;display:flex;align-items:center;gap:8px;font-family:var(--f-mono);font-size:11px;color:var(--mute)}
+.sun .bar{flex:1;height:3px;background:var(--well2);border-radius:2px;overflow:hidden}
+.sun .bar b{display:block;height:100%;border-radius:2px;transition:width .3s}
+
+#civTitle{display:flex;align-items:center;gap:8px}
+#civTitle h3{margin:0;font-weight:900;font-size:22px;letter-spacing:.04em}
+#civTitle h3 span{color:var(--yellow);font-family:var(--f-display);font-weight:800}
+#civAge{font-weight:700;font-size:15px;margin:8px 0 6px}
+.segs{display:grid;grid-template-columns:repeat(9,1fr);gap:3px}
+.segs i{height:5px;border-radius:2px;background:var(--well2);position:relative;overflow:hidden}
+.segs i b{position:absolute;inset:0;background:var(--yellow);transform-origin:left;transform:scaleX(0)}
+#civDesc{margin-top:8px;min-height:38px}
+.btnrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.btnrow .btn{text-align:center;padding:9px 8px}
+.btn.cta{background:rgba(255,204,68,.1);border-color:rgba(255,204,68,.4);color:var(--yellow)}
+
+.rtabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;background:var(--glass);border:1px solid var(--line);border-radius:var(--r);padding:4px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);flex-shrink:0}
+.rtabs button{all:unset;text-align:center;padding:7px 4px;border-radius:8px;font-size:12.5px;color:var(--mute);cursor:pointer}
+.rtabs button.on{background:var(--well2);color:var(--fg);box-shadow:inset 0 0 0 1px var(--line)}
+.rtabs button:focus-visible{outline:2px solid var(--blue)}
+#pR .card{display:none} #pR .card.show{display:block}
+canvas.chart{display:block;width:100%;border-radius:8px;background:var(--well)}
+#skyMap{height:150px} #planetThumb{width:100%;aspect-ratio:1.6;height:auto} #divChart{height:150px}
+.cap{font-size:11.5px;color:var(--mute);line-height:1.6;margin:8px 0 0}
+.sub{font-size:11.5px;letter-spacing:.16em;color:var(--mute);margin:16px 0 8px}
+.chron{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:none}
+.chron li{display:grid;grid-template-columns:auto 1fr auto;gap:2px 10px;align-items:center;background:var(--well);border:1px solid var(--line-soft);border-radius:9px;padding:8px 10px}
+.chron .no{font-family:var(--f-display);font-weight:800;font-size:17px;color:var(--yellow);grid-row:1/3}
+.chron .a{font-weight:700;font-size:13px}
+.chron .y{font-family:var(--f-mono);font-size:11px;color:var(--mute);text-align:right}
+.chron .why{grid-column:2/4;font-size:11.5px;color:var(--fg2)}
+.chron .why.red{color:#ff9aa4} .chron .why.green{color:var(--green)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px}
+.stats div{background:var(--well);border-radius:9px;padding:8px;text-align:center}
+.stats b{display:block;font-family:var(--f-display);font-weight:800;font-size:20px}
+.stats span{font-size:10.5px;color:var(--mute)}
+.seg{display:flex;gap:4px;margin:10px 0}
+.seg button{flex:1}
+.empty{font-size:12px;color:var(--mute);padding:10px 0}
+
+/* ---------- 觀測窗上的元件 ---------- */
+#viewbar{position:absolute;top:calc(74px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:12;display:flex;gap:4px;background:var(--glass);border:1px solid var(--line);border-radius:99px;padding:4px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);max-width:calc(100% - 660px);overflow-x:auto;scrollbar-width:none}
+#viewbar::-webkit-scrollbar{display:none}
+.chip{all:unset;padding:6px 12px;border-radius:99px;font-size:12.5px;color:var(--fg2);cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.chip:hover{background:rgba(221,227,245,.06)}
+.chip.on{background:var(--fg);color:#0a0d18;font-weight:700}
+.chip.go{color:var(--yellow)}
+.chip i{width:8px;height:8px;border-radius:50%;display:inline-block}
+#labels{position:absolute;inset:0;pointer-events:none;z-index:5;overflow:hidden}
+.lbl{position:absolute;left:0;top:0;font-size:11.5px;color:var(--fg2);white-space:nowrap;text-shadow:0 1px 3px #000,0 0 8px #000;transform:translate(10px,-50%);will-change:transform}
+.lbl b{font-weight:700;color:var(--fg)} .lbl span{font-family:var(--f-mono);font-size:10.5px;color:var(--mute);margin-left:6px}
+.lbl.pl b{color:var(--blue)}
+#toasts{position:absolute;left:50%;bottom:100px;transform:translateX(-50%);z-index:14;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;width:min(560px,calc(100% - 660px))}
+.toast{background:var(--glass-hi);border:1px solid var(--line);border-left:3px solid var(--blue);border-radius:9px;padding:8px 14px;font-size:12.5px;line-height:1.55;color:var(--fg);box-shadow:0 8px 30px rgba(0,0,0,.4);animation:tin .35s ease;max-width:100%}
+.toast.red{border-left-color:var(--red)} .toast.green{border-left-color:var(--green)} .toast.yellow{border-left-color:var(--yellow)}
+.toast.out{opacity:0;transform:translateY(6px);transition:all .5s}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+#concept{position:absolute;left:324px;bottom:100px;z-index:13;width:320px;background:var(--glass-hi);border:1px solid rgba(61,255,160,.35);border-radius:var(--r);padding:12px 14px;display:none}
+.teach #concept{display:block}
+#concept .k{font-size:11px;letter-spacing:.18em;color:var(--green)}
+#concept h4{margin:4px 0 6px;font-size:16px;font-weight:900}
+#concept p{margin:0;font-size:13px;line-height:1.7;color:var(--fg2)}
+#concept .q{margin-top:8px;font-size:12.5px;color:var(--yellow)}
+#cityHud{position:absolute;right:324px;bottom:100px;z-index:12;font-family:var(--f-mono);font-size:11px;color:var(--mute);background:var(--glass);border:1px solid var(--line-soft);border-radius:8px;padding:6px 10px;display:none}
+.city #cityHud{display:block}
+
+/* ---------- 時間軸 ---------- */
+#tl{position:absolute;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));height:72px;z-index:15;display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;background:var(--glass);border:1px solid var(--line);border-radius:var(--r);padding:8px 14px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+#yr{min-width:120px}
+#yr b{display:block;font-family:var(--f-display);font-weight:800;font-size:22px;font-variant-numeric:tabular-nums;line-height:1.1}
+#yr span{font-family:var(--f-mono);font-size:10.5px;color:var(--mute)}
+#tlCanvas{width:100%;height:46px;display:block;cursor:pointer}
+#tlTip{position:absolute;bottom:80px;transform:translateX(-50%);background:var(--glass-hi);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;max-width:280px;pointer-events:none;display:none;line-height:1.5}
+.tlbtns{display:flex;gap:6px}
+
+/* ---------- 彈窗 ---------- */
+#modal{position:absolute;inset:0;z-index:40;background:rgba(3,5,10,.66);display:grid;place-items:center;padding:16px}
+#modal .box{background:var(--glass-hi);border:1px solid var(--line);border-radius:16px;max-width:560px;width:100%;max-height:84vh;overflow:auto;padding:22px 24px;position:relative}
+#modal h2{font-weight:900;font-size:22px;margin:0 0 4px;letter-spacing:.04em}
+#modal .k{font-family:var(--f-display);font-size:11px;letter-spacing:.22em;color:var(--green)}
+#modal p,#modal li{font-size:13.5px;line-height:1.8;color:var(--fg2)}
+#modal ul{padding-left:18px;margin:6px 0}
+#modal kbd{font-family:var(--f-mono);font-size:11.5px;background:var(--well2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--fg)}
+#modal .q{background:rgba(255,204,68,.08);border-left:3px solid var(--yellow);padding:8px 12px;border-radius:6px;color:var(--fg)}
+#modal .x{position:absolute;right:14px;top:14px}
+#modal table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+#modal td{padding:6px 8px;border-top:1px solid var(--line-soft);color:var(--fg2);background:var(--well)}
+#modal tr:nth-child(even) td{background:var(--well2)}
+
+#mtabs{display:none}
+.teach{--fs:1}
+.teach .panel{font-size:15px}
+.teach .small,.teach .cap{font-size:13px}
+
+/* ---------- 手機：底部抽屜 ---------- */
+@media (max-width:860px){
+  #top{left:8px;right:8px;top:calc(6px + env(safe-area-inset-top,0px));flex-wrap:wrap;gap:6px 8px;padding:7px 8px}
+  .brand b{font-size:15px} .brand span{display:none} .brand svg{width:28px;height:28px}
+  .ctl{flex-basis:100%;margin-left:0}
+  .speed input{width:84px} .speed output{min-width:0;font-size:11px} .sep{display:none} .speed{padding:0 2px}
+  .ctl{mask-image:linear-gradient(90deg,#000 88%,transparent);-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);padding-right:24px}
+  #viewbar{top:calc(100px + env(safe-area-inset-top,0px));max-width:calc(100% - 16px)}
+  .panel{top:auto;left:0!important;right:0!important;width:auto;bottom:calc(52px + env(safe-area-inset-bottom,0px));height:var(--sheetH);padding:0 8px 6px;display:none;gap:8px}
+  .panel.mshow{display:flex}
+  .panel .card{display:none!important}
+  .panel .card.mon{display:block!important;overflow-y:auto;max-height:100%}
+  .rtabs{display:none}
+  body.sheet-closed .panel{display:none!important}
+  #mtabs{display:flex;position:absolute;left:0;right:0;bottom:0;z-index:16;background:var(--glass-hi);border-top:1px solid var(--line);padding:4px 4px calc(4px + env(safe-area-inset-bottom,0px));overflow-x:auto;scrollbar-width:none;gap:2px}
+  #mtabs::-webkit-scrollbar{display:none}
+  #mtabs button{all:unset;flex:1;min-width:52px;text-align:center;padding:9px 4px;border-radius:8px;font-size:12.5px;color:var(--mute)}
+  #mtabs button.on{color:var(--fg);background:var(--well2)}
+  #tl{left:8px;right:8px;bottom:calc(var(--sheetH) + 58px + env(safe-area-inset-bottom,0px));height:58px;grid-template-columns:auto 1fr auto;gap:8px;padding:6px 10px}
+  body.sheet-closed #tl{bottom:calc(58px + env(safe-area-inset-bottom,0px))}
+  #yr{min-width:78px} #yr b{font-size:17px}
+  #tlCanvas{height:36px}
+  #toasts{bottom:calc(var(--sheetH) + 124px);width:calc(100% - 24px)}
+  body.sheet-closed #toasts{bottom:124px}
+  #concept{left:8px;right:8px;width:auto;top:calc(146px + env(safe-area-inset-top,0px));bottom:auto}
+  #cityHud{right:8px;top:calc(146px + env(safe-area-inset-top,0px));bottom:auto}
+  #eraName{font-size:32px}
+  #tlTip{display:none!important}
+}
+
+/* ---------- 開場：選擇模式 ---------- */
+#start{position:absolute;inset:0;z-index:50;display:grid;place-items:center;padding:16px;background:radial-gradient(ellipse at 50% 40%,rgba(6,8,16,.35),rgba(6,8,16,.88) 70%);overflow-y:auto}
+#start .wrap{width:min(920px,100%);display:flex;flex-direction:column;gap:18px;padding-block:24px}
+#start .hd{display:flex;align-items:center;gap:14px}
+#start .hd svg{width:56px;height:56px;flex-shrink:0}
+#start h1{margin:0;font-weight:900;font-size:clamp(26px,5vw,40px);letter-spacing:.12em;line-height:1.1}
+#start .en{font-family:var(--f-display);font-weight:700;font-size:11px;letter-spacing:.3em;color:var(--mute);margin-top:6px}
+#start .lead{margin:0;color:var(--fg2);font-size:14px;line-height:1.7;max-width:60ch}
+#start .lab{font-size:11.5px;letter-spacing:.2em;color:var(--mute)}
+.modes{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.mode{all:unset;cursor:pointer;background:var(--glass);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px;transition:border-color .15s,background .15s,transform .15s;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.mode:hover{border-color:rgba(106,184,255,.45);transform:translateY(-2px)}
+.mode:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.mode.on{border-color:var(--yellow);background:rgba(255,204,68,.08)}
+.mode b{font-size:16px;font-weight:900}
+.mode .tg{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.1em;color:var(--yellow)}
+.mode p{margin:0;font-size:12px;line-height:1.6;color:var(--fg2)}
+.audience{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.go{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+#startBtn{all:unset;cursor:pointer;background:var(--yellow);color:#191204;font-weight:900;font-size:17px;letter-spacing:.12em;padding:14px 34px;border-radius:12px}
+#startBtn:focus-visible{outline:2px solid var(--fg);outline-offset:3px}
+#startBtn:hover{filter:brightness(1.08)}
+.go label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--fg2);cursor:pointer}
+.go input{accent-color:var(--green);width:16px;height:16px}
+@media (max-width:560px){.audience{grid-template-columns:1fr}.modes{grid-template-columns:1fr 1fr}.mode p{display:none}.modes .mode:last-child:nth-child(odd){grid-column:1/-1}}
+@media (min-width:861px){.teach #toasts{left:calc(50% + 175px);width:min(460px,calc(100% - 990px))}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+</head>
+<body>
+<div id="app">
+  <canvas id="gl" aria-label="三體星系 3D 觀測畫面"></canvas>
+  <div id="labels"></div>
+
+  <header id="top">
+    <div class="brand">
+      <svg viewBox="0 0 40 40" aria-hidden="true">
+        <circle cx="9" cy="10" r="5" fill="#141a2c" stroke="#6ab8ff" stroke-width="1.2"/>
+        <circle cx="31" cy="10" r="5" fill="#141a2c" stroke="#6ab8ff" stroke-width="1.2"/>
+        <circle cx="20" cy="22" r="14" fill="#0c0f1a" stroke="#6ab8ff" stroke-width="1.2"/>
+        <ellipse cx="20" cy="22" rx="10" ry="4.2" fill="none" stroke="rgba(221,227,245,.35)" stroke-width=".8" transform="rotate(-18 20 22)"/>
+        <circle cx="12.5" cy="24.5" r="2.6" fill="#ffcc44"/><circle cx="26" cy="18" r="2" fill="#6ab8ff"/><circle cx="23" cy="27.5" r="1.4" fill="#ff7ad9"/>
+      </svg>
+      <div><b>三體星系模擬器</b><span>BLACK BEAR OBSERVATORY</span></div>
+    </div>
+    <div class="ctl">
+      <select id="preset" class="btn" aria-label="星系情境"></select>
+      <button id="play" class="btn play" aria-label="暫停">❚❚</button>
+      <div class="speed"><input id="speed" type="range" min="0" max="100" step="1" aria-label="時間速度"><output id="speedV">1.5 年/秒</output></div>
+      <span class="sep"></span>
+      <button id="restart" class="btn">重新開始</button>
+      <button id="newsys" class="btn">新星系</button>
+      <span class="sep"></span>
+      <button id="teach" class="btn" aria-pressed="false">教學模式</button>
+      <button id="snd" class="btn" aria-pressed="false">聲音</button>
+      <button id="help" class="btn ghost">說明</button>
+    </div>
+  </header>
+
+  <aside id="pL" class="panel">
+    <section class="card" id="cEra">
+      <div class="eyebrow">紀元 <button class="i" data-c="era" aria-label="紀元說明">i</button></div>
+      <div class="era-row"><h2 id="eraName">恆紀元</h2><span id="eraDur" class="mono">已持續 0 年</span></div>
+      <p id="orbitLine" class="small mono">—</p>
+      <div class="evgrid" id="evGrid"></div>
+    </section>
+    <section class="card" id="cPlanet">
+      <div class="eyebrow">三體行星 <button class="i" data-c="flux" aria-label="溫度說明">i</button></div>
+      <div class="temp"><span id="tVal">15</span><small>°C</small><span id="habTag" class="pill g">宜居</span></div>
+      <div class="tbar"><div class="scale"></div><div class="hab" id="tHab"></div><div class="mk" id="tMk"></div><div class="eq" id="tEq"></div>
+        <div class="lab"><span>-200</span><span>-100</span><span>0</span><span>100</span><span>200</span><span>300</span><span>400</span></div></div>
+      <dl class="rows">
+        <dt>總日照</dt><dd id="rS">—</dd>
+        <dt>平衡溫度</dt><dd id="rTeq">—</dd>
+        <dt>一年長度</dt><dd id="rYear">—</dd>
+        <dt>潮汐／重力</dt><dd id="rTide">—</dd>
+      </dl>
+    </section>
+    <section class="card" id="cSuns">
+      <div class="eyebrow">天上的太陽 <button class="i" data-c="fly" aria-label="飛星說明">i</button></div>
+      <div id="sunList"></div>
+    </section>
+    <section class="card" id="cCiv">
+      <div class="eyebrow">文明 <button class="i" data-c="dehyd" aria-label="脫水說明">i</button></div>
+      <div id="civTitle"><h3>第 <span id="civNo">1</span> 號文明</h3><span id="civState" class="pill g">活動中</span></div>
+      <div id="civAge">原始時代</div>
+      <div class="segs" id="segs"></div>
+      <p id="civDesc" class="small">—</p>
+      <dl class="rows">
+        <dt>下一階段</dt><dd id="rNext">—</dd>
+        <dt>文明年數</dt><dd id="rCivY">—</dd>
+        <dt>發展速度</dt><dd id="rRate">—</dd>
+        <dt>脫水次數</dt><dd id="rDehyd">—</dd>
+        <dt>歷代文明</dt><dd id="rHist">—</dd>
+      </dl>
+      <div class="btnrow"><button class="btn cta" id="goCity">近看城市</button><button class="btn" id="goSpace">返回太空</button></div>
+    </section>
+  </aside>
+
+  <aside id="pR" class="panel">
+    <div class="rtabs" role="tablist"><button data-r="cObs" class="on">觀測</button><button data-r="cChron">編年史</button><button data-r="cChaos">混沌實驗</button></div>
+    <section class="card show" id="cObs">
+      <div class="eyebrow">從行星上看出去的全天 <button class="i" data-c="sky" aria-label="全天圖說明">i</button></div>
+      <canvas id="skyMap" class="chart"></canvas>
+      <p class="cap">站在城市裡看天空：橫軸是方位，縱軸是仰角，虛線是地平線。主太陽畫出規律的弧線；路徑交纏亂繞，就是亂紀元。</p>
+      <div class="sub">行星的樣子</div>
+      <canvas id="planetThumb" class="chart"></canvas>
+      <p class="cap" id="planetCap">—</p>
+    </section>
+    <section class="card" id="cChron">
+      <div class="eyebrow">文明編年史 <button class="i" data-c="chron" aria-label="編年史說明">i</button></div>
+      <div class="stats"><div><b id="stTotal">0</b><span>文明總數</span></div><div><b id="stBest" style="color:var(--yellow)">—</b><span>最高時代</span></div><div><b id="stLong" style="color:var(--green)">0</b><span>最長存續（年）</span></div></div>
+      <ul class="chron" id="chronList"></ul>
+    </section>
+    <section class="card" id="cChaos">
+      <div class="eyebrow">混沌實驗 <button class="i" data-c="chaos" aria-label="混沌說明">i</button></div>
+      <p class="small">複製一個雙胞胎宇宙，只把太陽乙的位置挪動一點點，看兩個宇宙多久之後走上完全不同的路。粉紅色軌跡就是雙胞胎。</p>
+      <div class="seg" id="deltaSeg"><button class="btn" data-d="1e-3">1/1000 AU</button><button class="btn on" data-d="1e-6">百萬分之一</button><button class="btn" data-d="1e-9">十億分之一</button></div>
+      <button class="btn cta" id="twinBtn" style="width:100%">開始雙胞胎實驗</button>
+      <canvas id="divChart" class="chart" style="margin-top:12px"></canvas>
+      <p class="cap" id="divCap">尚未開始。挪動量越小，分歧來得越晚，但終究會來。</p>
+    </section>
+  </aside>
+
+  <nav id="viewbar" aria-label="觀察目標"></nav>
+  <div id="toasts" aria-live="polite"></div>
+  <div id="concept"><div class="k">課堂概念</div><h4 id="cpT">—</h4><p id="cpP">—</p><div class="q" id="cpQ"></div></div>
+  <div id="cityHud"></div>
+
+  <footer id="tl">
+    <div id="yr"><b id="yrV">第 0.0 年</b><span id="yrS">每秒 1.5 年</span></div>
+    <canvas id="tlCanvas" aria-label="時間軸，點擊可回到過去的時刻"></canvas>
+    <div class="tlbtns"><button class="btn" id="prevEv" title="回到上一個重大事件">⏮ 事件</button></div>
+    <div id="tlTip"></div>
+  </footer>
+
+  <nav id="mtabs" aria-label="資訊面板"></nav>
+
+  <div id="start">
+    <div class="wrap">
+      <div class="hd">
+        <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="9" cy="10" r="5" fill="#141a2c" stroke="#6ab8ff" stroke-width="1.2"/><circle cx="31" cy="10" r="5" fill="#141a2c" stroke="#6ab8ff" stroke-width="1.2"/><circle cx="20" cy="22" r="14" fill="#0c0f1a" stroke="#6ab8ff" stroke-width="1.2"/><ellipse cx="20" cy="22" rx="10" ry="4.2" fill="none" stroke="rgba(221,227,245,.35)" stroke-width=".8" transform="rotate(-18 20 22)"/><circle cx="12.5" cy="24.5" r="2.6" fill="#ffcc44"/><circle cx="26" cy="18" r="2" fill="#6ab8ff"/><circle cx="23" cy="27.5" r="1.4" fill="#ff7ad9"/></svg>
+        <div><h1>三體星系模擬器</h1><div class="en">BLACK BEAR OBSERVATORY</div></div>
+      </div>
+      <p class="lead">三顆太陽、一顆行星、一個不斷重來的文明。選一個星系，按下開始，看文明能不能撐到飛出星系的那一天。</p>
+      <div class="lab">選擇星系</div>
+      <div class="modes" id="startModes"></div>
+      <div class="lab">選擇使用方式</div>
+      <div class="audience" id="startAud">
+        <button class="mode on" data-a="show"><span class="tg">EXHIBIT</span><b>展示模式</b><p>畫面乾淨，專心看天象與城市興衰。</p></button>
+        <button class="mode" data-a="teach"><span class="tg">CLASSROOM</span><b>教學模式</b><p>依畫面上發生的事，自動跳出概念卡與課堂提問。</p></button>
+      </div>
+      <div class="go"><button id="startBtn">開始觀測</button><label><input type="checkbox" id="startSnd" checked> 開啟太空環境音</label></div>
+    </div>
+  </div>
+  <div id="fade"></div>
+  <div id="modal" hidden><div class="box" role="dialog" aria-modal="true"><button class="btn x" id="mClose">關閉</button><div id="mBody"></div></div></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
+<script>
+// ================= 物理與世界模型 =================
+// 單位：天文單位 AU、地球年 yr、太陽質量 M☉。G = 4π²
+const G = 4 * Math.PI * Math.PI;
+const R_SUN_AU = 0.00465;          // 太陽半徑（AU）
+const R_PLANET_AU = 4.26e-5;       // 行星半徑（地球大小）
+const G_EARTH = G * 3.0e-6 / (R_PLANET_AU * R_PLANET_AU); // 地表重力（AU/yr²）
+const DISK_DEG = 0.04;             // 視直徑小於此值：看起來像「飛星」
+
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// 主序星近似：光度、半徑、表面溫度
+function starProps(m) {
+  const L = m < 0.43 ? 0.23 * Math.pow(m, 2.3) : Math.pow(m, 4);
+  const R = Math.pow(m, 0.8);
+  const Teff = 5778 * Math.pow(L / (R * R), 0.25);
+  return { m, L, R, Teff, color: kelvinToRGB(Teff) };
+}
+function kelvinToRGB(k) {
+  const t = k / 100; let r, g, b;
+  if (t <= 66) { r = 255; g = 99.47 * Math.log(t) - 161.12; }
+  else { r = 329.7 * Math.pow(t - 60, -0.1332); g = 288.12 * Math.pow(t - 60, -0.0755); }
+  if (t >= 66) b = 255; else if (t <= 19) b = 0; else b = 138.52 * Math.log(t - 10) - 305.04;
+  const c = v => Math.max(0, Math.min(255, v)) / 255;
+  return [c(r), c(g), c(b)];
+}
+
+// ---------- N 體積分器（三恆星 + 測試粒子行星） ----------
+class Sim {
+  constructor(masses) {
+    this.stars = masses.map(starProps);
+    this.m = masses.slice();
+    this.t = 0;
+    this.sp = new Float64Array(9); this.sv = new Float64Array(9);
+    this.pp = new Float64Array(3); this.pv = new Float64Array(3);
+    this.sa = new Float64Array(9); this.pa = new Float64Array(3);
+    this.eps2 = 1e-6;
+  }
+  clone() {
+    const s = new Sim(this.m);
+    s.t = this.t; s.sp.set(this.sp); s.sv.set(this.sv); s.pp.set(this.pp); s.pv.set(this.pv);
+    return s;
+  }
+  getState() { return { t: this.t, m: this.m.slice(), sp: Array.from(this.sp), sv: Array.from(this.sv), pp: Array.from(this.pp), pv: Array.from(this.pv) }; }
+  setState(o) { this.t = o.t; this.sp.set(o.sp); this.sv.set(o.sv); this.pp.set(o.pp); this.pv.set(o.pv); }
+  acc() {
+    const sp = this.sp, sa = this.sa, m = this.m, e2 = this.eps2;
+    sa.fill(0);
+    for (let i = 0; i < 3; i++) for (let j = i + 1; j < 3; j++) {
+      const dx = sp[j * 3] - sp[i * 3], dy = sp[j * 3 + 1] - sp[i * 3 + 1], dz = sp[j * 3 + 2] - sp[i * 3 + 2];
+      const r2 = dx * dx + dy * dy + dz * dz + e2, inv = 1 / (r2 * Math.sqrt(r2));
+      const fi = G * m[j] * inv, fj = G * m[i] * inv;
+      sa[i * 3] += dx * fi; sa[i * 3 + 1] += dy * fi; sa[i * 3 + 2] += dz * fi;
+      sa[j * 3] -= dx * fj; sa[j * 3 + 1] -= dy * fj; sa[j * 3 + 2] -= dz * fj;
+    }
+    const pp = this.pp, pa = this.pa; pa.fill(0);
+    for (let i = 0; i < 3; i++) {
+      const dx = sp[i * 3] - pp[0], dy = sp[i * 3 + 1] - pp[1], dz = sp[i * 3 + 2] - pp[2];
+      const r2 = dx * dx + dy * dy + dz * dz + 1e-8, f = G * m[i] / (r2 * Math.sqrt(r2));
+      pa[0] += dx * f; pa[1] += dy * f; pa[2] += dz * f;
+    }
+  }
+  // 自適應步長：取所有配對最短的動力學時間
+  dtSuggest() {
+    const sp = this.sp, pp = this.pp, m = this.m; let best = 0.02;
+    for (let i = 0; i < 3; i++) {
+      for (let j = i + 1; j < 3; j++) {
+        const dx = sp[j * 3] - sp[i * 3], dy = sp[j * 3 + 1] - sp[i * 3 + 1], dz = sp[j * 3 + 2] - sp[i * 3 + 2];
+        const r = Math.sqrt(dx * dx + dy * dy + dz * dz) + 1e-3;
+        best = Math.min(best, 0.012 * Math.sqrt(r * r * r / (G * (m[i] + m[j]))));
+      }
+      const dx = sp[i * 3] - pp[0], dy = sp[i * 3 + 1] - pp[1], dz = sp[i * 3 + 2] - pp[2];
+      const r = Math.sqrt(dx * dx + dy * dy + dz * dz) + 1e-3;
+      best = Math.min(best, 0.012 * Math.sqrt(r * r * r / (G * m[i])));
+    }
+    return Math.max(best, 2e-6);
+  }
+  step(dt) {
+    const sv = this.sv, sp = this.sp, sa = this.sa, pv = this.pv, pp = this.pp, pa = this.pa, h = dt * 0.5;
+    this.acc();
+    for (let k = 0; k < 9; k++) { sv[k] += sa[k] * h; sp[k] += sv[k] * dt; }
+    for (let k = 0; k < 3; k++) { pv[k] += pa[k] * h; pp[k] += pv[k] * dt; }
+    this.acc();
+    for (let k = 0; k < 9; k++) sv[k] += sa[k] * h;
+    for (let k = 0; k < 3; k++) pv[k] += pa[k] * h;
+    this.t += dt;
+  }
+  stepTo(target, maxSteps = 200000) {
+    let n = 0;
+    while (this.t < target - 1e-12 && n < maxSteps) { this.step(Math.min(this.dtSuggest(), target - this.t)); n++; }
+    if (this.t < target) this.t = target;
+    return n;
+  }
+  com() {
+    let M = 0; const c = [0, 0, 0];
+    for (let i = 0; i < 3; i++) { M += this.m[i]; for (let k = 0; k < 3; k++) c[k] += this.m[i] * this.sp[i * 3 + k]; }
+    return c.map(v => v / M);
+  }
+}
+
+// ---------- 預設星系 ----------
+function toCOM(sim) {
+  let M = 0; const p = [0, 0, 0], v = [0, 0, 0];
+  for (let i = 0; i < 3; i++) { M += sim.m[i]; for (let k = 0; k < 3; k++) { p[k] += sim.m[i] * sim.sp[i * 3 + k]; v[k] += sim.m[i] * sim.sv[i * 3 + k]; } }
+  for (let i = 0; i < 3; i++) for (let k = 0; k < 3; k++) { sim.sp[i * 3 + k] -= p[k] / M; sim.sv[i * 3 + k] -= v[k] / M; }
+}
+function placePlanet(sim, host, rng, rFactor = 1) {
+  // 若主星旁有很近的伴星，改成繞雙星（或三星）質心的外側軌道
+  const near = [host];
+  let Lt = sim.stars[host].L;
+  for (let j = 0; j < 3; j++) if (j !== host) {
+    const d = Math.hypot(sim.sp[j * 3] - sim.sp[host * 3], sim.sp[j * 3 + 1] - sim.sp[host * 3 + 1], sim.sp[j * 3 + 2] - sim.sp[host * 3 + 2]);
+    if (d < Math.sqrt(Lt + sim.stars[j].L) * 0.3) { near.push(j); Lt += sim.stars[j].L; }
+  }
+  if (near.length > 1) return placeAround(sim, near, rng, rFactor);
+  const st = sim.stars[host];
+  const r = Math.sqrt(st.L) * rFactor * (0.97 + rng() * 0.06);
+  const ang = rng() * Math.PI * 2, tilt = (rng() - 0.5) * 0.12;
+  const ux = Math.cos(ang), uy = Math.sin(ang);
+  const vmag = Math.sqrt(G * sim.m[host] / r);
+  sim.pp[0] = sim.sp[host * 3] + r * ux; sim.pp[1] = sim.sp[host * 3 + 1] + r * uy; sim.pp[2] = sim.sp[host * 3 + 2] + r * tilt * ux;
+  sim.pv[0] = sim.sv[host * 3] - vmag * uy; sim.pv[1] = sim.sv[host * 3 + 1] + vmag * ux; sim.pv[2] = sim.sv[host * 3 + 2];
+}
+function placeAround(sim, ids, rng, rFactor = 1) {
+  let M = 0, L = 0; const c = [0, 0, 0], cv = [0, 0, 0];
+  for (const i of ids) { M += sim.m[i]; L += sim.stars[i].L; for (let k = 0; k < 3; k++) { c[k] += sim.m[i] * sim.sp[i * 3 + k]; cv[k] += sim.m[i] * sim.sv[i * 3 + k]; } }
+  for (let k = 0; k < 3; k++) { c[k] /= M; cv[k] /= M; }
+  const r = Math.sqrt(L) * rFactor * (0.98 + rng() * 0.04), pa = rng() * 6.28, vp = Math.sqrt(G * M / r);
+  sim.pp.set([c[0] + r * Math.cos(pa), c[1] + r * Math.sin(pa), c[2]]);
+  sim.pv.set([cv[0] - vp * Math.sin(pa), cv[1] + vp * Math.cos(pa), cv[2]]);
+}
+// 讓 b 以圓軌道繞 a（或質心 at）運行
+function circ(sim, i, cx, cy, cz, cvx, cvy, Mc, r, ang, rng, ecc = 0) {
+  const ux = Math.cos(ang), uy = Math.sin(ang);
+  const v = r > 0 ? Math.sqrt(G * (Mc + sim.m[i]) / r) * (1 - ecc) : 0;
+  sim.sp[i * 3] = cx + r * ux; sim.sp[i * 3 + 1] = cy + r * uy; sim.sp[i * 3 + 2] = cz + (rng() - 0.5) * r * 0.08;
+  sim.sv[i * 3] = cvx - v * uy; sim.sv[i * 3 + 1] = cvy + v * ux; sim.sv[i * 3 + 2] = (rng() - 0.5) * v * 0.04;
+}
+
+const PRESETS = {
+  chaos: {
+    name: '三體世界', tag: '混沌',
+    desc: '三顆質量相近的恆星彼此糾纏，行星時而穩定繞行、時而被甩亂。恆紀元與亂紀元交替出現。',
+    build(rng) {
+      const m = [1.05 + rng() * 0.08, 0.86 + rng() * 0.1, 0.68 + rng() * 0.1];
+      const sim = new Sim(m);
+      const rB = 7 + rng() * 2.5;
+      circ(sim, 0, 0, 0, 0, 0, 0, 0, 0, 0, rng);
+      circ(sim, 1, 0, 0, 0, 0, 0, m[0], rB, rng() * 6.28, rng, 0.12 + rng() * 0.1);
+      const cx = (m[1] * sim.sp[3]) / (m[0] + m[1]), cy = (m[1] * sim.sp[4]) / (m[0] + m[1]);
+      const cvx = (m[1] * sim.sv[3]) / (m[0] + m[1]), cvy = (m[1] * sim.sv[4]) / (m[0] + m[1]);
+      circ(sim, 2, cx, cy, 0, cvx, cvy, m[0] + m[1], rB * (2.1 + rng() * 0.6), rng() * 6.28, rng, 0.2 + rng() * 0.15);
+      toCOM(sim); placePlanet(sim, 0, rng);
+      return sim;
+    }
+  },
+  hier: {
+    name: '階層三星', tag: '穩定',
+    desc: '一對緊密雙星加上遠方第三顆恆星。行星繞著雙星外側運行，恆紀元可以維持很久。',
+    build(rng) {
+      const m = [0.92, 0.7, 0.5];
+      const sim = new Sim(m);
+      const a = 0.14, M = m[0] + m[1], ang = rng() * 6.28;
+      const v = Math.sqrt(G * M / a);
+      const r0 = a * m[1] / M, r1 = a * m[0] / M;
+      sim.sp.set([r0 * Math.cos(ang), r0 * Math.sin(ang), 0, -r1 * Math.cos(ang), -r1 * Math.sin(ang), 0], 0);
+      const v0 = v * m[1] / M, v1 = v * m[0] / M;
+      sim.sv.set([-v0 * Math.sin(ang), v0 * Math.cos(ang), 0, v1 * Math.sin(ang), -v1 * Math.cos(ang), 0], 0);
+      circ(sim, 2, 0, 0, 0, 0, 0, M, 42, rng() * 6.28, rng, 0.05);
+      toCOM(sim); placeAround(sim, [0, 1], rng);
+      return sim;
+    }
+  },
+  solar: {
+    name: '太陽系對照', tag: '對照組',
+    desc: '只有一顆明亮主星，另外兩顆暗淡紅矮星遠在數百 AU 外。這就是地球的處境：一顆太陽，穩定的四季。',
+    build(rng) {
+      const m = [1.0, 0.3, 0.2];
+      const sim = new Sim(m);
+      circ(sim, 1, 0, 0, 0, 0, 0, 1, 320, rng() * 6.28, rng);
+      circ(sim, 2, 0, 0, 0, 0, 0, 1.3, 680, rng() * 6.28, rng);
+      toCOM(sim); placePlanet(sim, 0, rng);
+      return sim;
+    }
+  },
+  eight: {
+    name: '八字形編舞', tag: '特解',
+    desc: '三顆等質量恆星沿同一條「8」字軌道互相追逐，是三體問題少數的週期解（Chenciner–Montgomery, 2000）。行星在外圍繞行。',
+    build(rng) {
+      const m = [1.3, 1.3, 1.3], L = 0.5;
+      const sim = new Sim(m);
+      const vs = Math.sqrt(G * m[0] / L);
+      const x1 = [0.97000436, -0.24308753], v3 = [-0.93240737, -0.86473146];
+      sim.sp.set([x1[0] * L, x1[1] * L, 0, -x1[0] * L, -x1[1] * L, 0, 0, 0, 0]);
+      sim.sv.set([-v3[0] / 2 * vs, -v3[1] / 2 * vs, 0, -v3[0] / 2 * vs, -v3[1] / 2 * vs, 0, v3[0] * vs, v3[1] * vs, 0]);
+      placeAround(sim, [0, 1, 2], rng, 1.02);
+      return sim;
+    }
+  },
+  random: {
+    name: '隨機新星系', tag: '隨機',
+    desc: '隨機產生三顆恆星的質量、距離與速度。每一個種子碼都是一個新宇宙。',
+    build(rng) {
+      const m = [0.6 + rng() * 0.8, 0.5 + rng() * 0.7, 0.4 + rng() * 0.7];
+      const sim = new Sim(m);
+      const rB = 4 + rng() * 10;
+      circ(sim, 0, 0, 0, 0, 0, 0, 0, 0, 0, rng);
+      circ(sim, 1, 0, 0, 0, 0, 0, m[0], rB, rng() * 6.28, rng, rng() * 0.4);
+      circ(sim, 2, 0, 0, 0, 0, 0, m[0] + m[1], rB * (1.6 + rng() * 2.5), rng() * 6.28, rng, rng() * 0.45);
+      toCOM(sim);
+      let host = 0; for (let i = 1; i < 3; i++) if (sim.stars[i].L > sim.stars[host].L) host = i;
+      placePlanet(sim, host, rng);
+      return sim;
+    }
+  }
+};
+
+// ---------- 文明時代 ----------
+const AGES = [
+  { n: '原始時代', y: 0, d: '部落在河谷聚居，用火取暖，觀察太陽卻無法預測它。' },
+  { n: '農耕時代', y: 8, d: '開墾農田、建起巨擺，試圖用規律對抗無常的太陽。' },
+  { n: '青銅時代', y: 20, d: '城牆與祭壇出現，曆法學者開始記錄三顆太陽的軌跡。' },
+  { n: '鐵器時代', y: 34, d: '王朝興起，人力計算陣列嘗試推算恆紀元何時到來。' },
+  { n: '蒸汽時代', y: 52, d: '工廠煙囪林立，蒸汽機讓脫水與浸泡變得更有效率。' },
+  { n: '電氣時代', y: 70, d: '電燈照亮夜晚，電報把天象警報傳遍全球。' },
+  { n: '原子時代', y: 92, d: '原子能點亮城市，科學家用電子計算機模擬三體運動。' },
+  { n: '資訊時代', y: 115, d: '全球網路建成，證明三體問題沒有通用解，決定改為飛向群星。' },
+  { n: '太空時代', y: 140, d: '發射場日夜不停，星際艦隊正在軌道上組裝。' }
+];
+const CIV_END = 170;
+
+const EVENT_DEFS = {
+  sanri: { n: '三日凌空', c: 'red', msg: '三日凌空：三顆太陽同時以日面出現在天空，地表急速升溫。' },
+  shuangri: { n: '雙日凌空', c: 'yellow', msg: '雙日凌空：兩顆太陽同時出現在天空。' },
+  lianzhu: { n: '三日連珠', c: 'red', msg: '三日連珠：三顆太陽排成一直線，潮汐力疊加。' },
+  feixingStill: { n: '飛星不動', c: 'blue', msg: '飛星不動：遠方的飛星在天空中幾乎靜止，它正朝行星直線接近或遠離。' },
+  twoFly: { n: '兩顆飛星', c: 'blue', msg: '兩顆飛星：天空只剩一顆太陽，另外兩顆遠成亮星，可能迎來較長恆紀元。' },
+  threeFly: { n: '三顆飛星', c: 'red', msg: '三顆飛星：三顆太陽都遠成亮點，嚴寒將至。' },
+  night: { n: '長夜', c: 'blue', msg: '長夜：行星遠離所有太陽，天空一片黑暗。' }
+};
+
+// ---------- 世界：氣候、紀元、事件、文明 ----------
+class World {
+  constructor(presetKey, seed) {
+    this.presetKey = presetKey; this.seed = seed;
+    this.rng = mulberry32(seed * 9301 + 49297);
+    this.sim = PRESETS[presetKey].build(mulberry32(seed));
+    this.T = 15; this.era = 'stable'; this.eraSince = 0; this.eraTimer = 0;
+    this.flags = {}; this.flagCool = {};
+    this.events = []; this.history = [];
+    this.civCounter = 0; this.civ = null; this.lastCivEnd = -100; this.recoverTimer = 0;
+    this.lostTimer = 0; this.cold = 0;
+    this.skyTrail = [[], [], []]; this.skyT = 0;
+    this.info = null;
+    this.compute();
+    this.T = this.info.Teq;
+    this.newCiv();
+  }
+  log(t, key, text, color) { this.events.push({ t, key, text, color }); this.onEvent && this.onEvent(this.events[this.events.length - 1]); }
+
+  compute() {
+    const s = this.sim, pp = s.pp, info = { stars: [], S: 0, tide: 0 };
+    let host = 0, best = -1;
+    for (let i = 0; i < 3; i++) {
+      const dx = s.sp[i * 3] - pp[0], dy = s.sp[i * 3 + 1] - pp[1], dz = s.sp[i * 3 + 2] - pp[2];
+      const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      const st = s.stars[i], flux = st.L / (d * d);
+      const ang = 2 * Math.atan(st.R * R_SUN_AU / d) * 180 / Math.PI;
+      const a = G * s.m[i] / (d * d);
+      // 視角速度
+      const rvx = s.sv[i * 3] - s.pv[0], rvy = s.sv[i * 3 + 1] - s.pv[1], rvz = s.sv[i * 3 + 2] - s.pv[2];
+      const ux = dx / d, uy = dy / d, uz = dz / d, vr = rvx * ux + rvy * uy + rvz * uz;
+      const vt = Math.sqrt(Math.max(0, rvx * rvx + rvy * rvy + rvz * rvz - vr * vr));
+      info.stars.push({ d, flux, ang, a, u: [ux, uy, uz], omega: vt / d, disk: ang >= DISK_DEG });
+      info.S += flux; info.tide += 2 * G * s.m[i] * R_PLANET_AU / (d * d * d);
+      if (a > best) { best = a; host = i; }
+    }
+    info.tide /= G_EARTH;
+    info.host = host;
+    // 相對主星的軌道要素
+    const h3 = host * 3, M = s.m[host];
+    const rx = pp[0] - s.sp[h3], ry = pp[1] - s.sp[h3 + 1], rz = pp[2] - s.sp[h3 + 2];
+    const vx = s.pv[0] - s.sv[h3], vy = s.pv[1] - s.sv[h3 + 1], vz = s.pv[2] - s.sv[h3 + 2];
+    const r = Math.sqrt(rx * rx + ry * ry + rz * rz), v2 = vx * vx + vy * vy + vz * vz;
+    const mu = G * M, E = v2 / 2 - mu / r;
+    const hx = ry * vz - rz * vy, hy = rz * vx - rx * vz, hz = rx * vy - ry * vx, h2 = hx * hx + hy * hy + hz * hz;
+    info.bound = E < 0; info.a = E < 0 ? -mu / (2 * E) : Infinity;
+    info.e = Math.sqrt(Math.max(0, 1 + 2 * E * h2 / (mu * mu)));
+    info.period = info.bound ? Math.pow(info.a, 1.5) / Math.sqrt(M) : Infinity;
+    // 擾動：其他恆星的潮汐加速度 / 主星引力
+    let px = 0, py = 0, pz = 0, minSep = Infinity;
+    for (let j = 0; j < 3; j++) if (j !== host) {
+      const j3 = j * 3;
+      const dx1 = s.sp[j3] - pp[0], dy1 = s.sp[j3 + 1] - pp[1], dz1 = s.sp[j3 + 2] - pp[2];
+      const dx2 = s.sp[j3] - s.sp[h3], dy2 = s.sp[j3 + 1] - s.sp[h3 + 1], dz2 = s.sp[j3 + 2] - s.sp[h3 + 2];
+      const d1 = Math.hypot(dx1, dy1, dz1), d2 = Math.hypot(dx2, dy2, dz2);
+      minSep = Math.min(minSep, d2);
+      const f1 = G * s.m[j] / (d1 * d1 * d1), f2 = G * s.m[j] / (d2 * d2 * d2);
+      px += dx1 * f1 - dx2 * f2; py += dy1 * f1 - dy2 * f2; pz += dz1 * f1 - dz2 * f2;
+    }
+    info.pert = Math.hypot(px, py, pz) / (mu / (r * r));
+    // 多星主系統：與主星距離很近的伴星，視為同一個中心（環雙星／環三星軌道）
+    info.circumbinary = false;
+    const grp = [host];
+    for (let j = 0; j < 3; j++) if (j !== host) {
+      const d = Math.hypot(s.sp[j * 3] - s.sp[h3], s.sp[j * 3 + 1] - s.sp[h3 + 1], s.sp[j * 3 + 2] - s.sp[h3 + 2]);
+      if (d < r * 0.6) grp.push(j);
+    }
+    if (grp.length > 1) {
+      info.circumbinary = true; info.group = grp;
+      let Mb = 0; const c = [0, 0, 0], cv = [0, 0, 0];
+      for (const i of grp) { Mb += s.m[i]; for (let k = 0; k < 3; k++) { c[k] += s.m[i] * s.sp[i * 3 + k]; cv[k] += s.m[i] * s.sv[i * 3 + k]; } }
+      for (let k = 0; k < 3; k++) { c[k] /= Mb; cv[k] /= Mb; }
+      const ex = pp[0] - c[0], ey = pp[1] - c[1], ez = pp[2] - c[2], wx = s.pv[0] - cv[0], wy = s.pv[1] - cv[1], wz = s.pv[2] - cv[2];
+      const r2 = Math.hypot(ex, ey, ez), E2 = (wx * wx + wy * wy + wz * wz) / 2 - G * Mb / r2;
+      const hh = (ey * wz - ez * wy) ** 2 + (ez * wx - ex * wz) ** 2 + (ex * wy - ey * wx) ** 2;
+      info.bound = E2 < 0; info.a = E2 < 0 ? -G * Mb / (2 * E2) : Infinity;
+      info.e = Math.sqrt(Math.max(0, 1 + 2 * E2 * hh / (G * Mb) ** 2));
+      info.period = info.bound ? Math.pow(info.a, 1.5) / Math.sqrt(Mb) : Infinity;
+      // 擾動只計群組外的恆星
+      let qx = 0, qy = 0, qz = 0;
+      for (let j = 0; j < 3; j++) if (!grp.includes(j)) {
+        const j3 = j * 3;
+        const dx1 = s.sp[j3] - pp[0], dy1 = s.sp[j3 + 1] - pp[1], dz1 = s.sp[j3 + 2] - pp[2];
+        const dx2 = s.sp[j3] - c[0], dy2 = s.sp[j3 + 1] - c[1], dz2 = s.sp[j3 + 2] - c[2];
+        const d1 = Math.hypot(dx1, dy1, dz1), d2 = Math.hypot(dx2, dy2, dz2);
+        const f1 = G * s.m[j] / d1 ** 3, f2 = G * s.m[j] / d2 ** 3;
+        qx += dx1 * f1 - dx2 * f2; qy += dy1 * f1 - dy2 * f2; qz += dz1 * f1 - dz2 * f2;
+      }
+      info.pert = Math.max(0.004, Math.hypot(qx, qy, qz) / (G * Mb / (r2 * r2)));
+    }
+    info.Teq = Math.max(-250, 288 * Math.pow(info.S + 1e-9, 0.25) - 273.15);
+    const com = s.com();
+    info.distCOM = Math.hypot(pp[0] - com[0], pp[1] - com[1], pp[2] - com[2]);
+    info.minStarDist = Math.min(...info.stars.map(x => x.d));
+    info.r = r;
+    // 天象
+    const st = info.stars;
+    const disks = st.filter(x => x.disk).length, fly = 3 - disks;
+    let collinear = true;
+    for (let i = 0; i < 3; i++) for (let j = i + 1; j < 3; j++) {
+      const a = st[i].u, b = st[j].u;
+      const cx = a[1] * b[2] - a[2] * b[1], cy = a[2] * b[0] - a[0] * b[2], cz = a[0] * b[1] - a[1] * b[0];
+      if (Math.hypot(cx, cy, cz) > 0.035) collinear = false;
+    }
+    info.disks = disks; info.fly = fly; info.collinear = collinear;
+    info.flags = {
+      sanri: st.filter(x => x.ang >= 0.12).length === 3,
+      shuangri: st.filter(x => x.ang >= 0.12).length === 2,
+      lianzhu: collinear && st.every(x => x.ang > 0.03),
+      feixingStill: st.some(x => !x.disk && x.omega < 0.02 && x.flux > 1e-4),
+      twoFly: fly === 2 && info.S > 0.05,
+      threeFly: fly === 3 && info.S > 0.05,
+      night: info.S <= 0.05
+    };
+    this.info = info;
+    return info;
+  }
+
+  newCiv() {
+    this.civCounter++;
+    this.civ = { id: this.civCounter, startT: this.sim.t, years: 0, age: 0, dehyd: false, dehydCount: 0, badT: 0, goodT: 0, frozen: 0, seed: Math.floor(this.rng() * 1e9) };
+    this.log(this.sim.t, 'civStart', `第 ${this.civ.id} 號文明誕生於河谷之中。`, 'green');
+  }
+  endCiv(reason, kind) {
+    const c = this.civ; if (!c) return;
+    this.history.push({ id: c.id, startT: c.startT, endT: this.sim.t, years: c.years, age: c.age, reason, kind, dehyd: c.dehydCount });
+    this.log(this.sim.t, kind === 'win' ? 'civWin' : 'civEnd', kind === 'win'
+      ? `第 ${c.id} 號文明的星際艦隊啟航，飛出三體星系。`
+      : `第 ${c.id} 號文明毀滅：${reason}。文明發展到${AGES[c.age].n}，存續 ${c.years.toFixed(1)} 文明年。`, kind === 'win' ? 'green' : 'red');
+    this.ruins = { age: c.age, kind, seed: c.seed, burned: kind === 'heat' };
+    this.civ = null; this.lastCivEnd = this.sim.t; this.recoverTimer = 0;
+  }
+
+  update(dt) {
+    const info = this.compute(), t = this.sim.t;
+    // 溫度：熱慣性追趕平衡溫度（海洋的熱容量）
+    const tau = info.Teq < this.T ? 0.16 : 0.1;
+    this.T += (info.Teq - this.T) * (1 - Math.exp(-dt / tau));
+    // 紀元判定（有遲滯，避免來回閃爍）
+    const stableNow = info.bound && info.e < 0.35 && info.pert < 0.06 && info.Teq > -45 && info.Teq < 75;
+    const want = stableNow ? 'stable' : 'chaos';
+    if (want !== this.era) {
+      this.eraTimer += dt;
+      if (this.eraTimer > (want === 'stable' ? 0.35 : 0.12)) {
+        this.era = want; this.eraSince = t; this.eraTimer = 0;
+        this.log(t, want === 'stable' ? 'eraStable' : 'eraChaos', want === 'stable'
+          ? '恆紀元開始：行星被' + this.hostName() + '穩定捕獲，日出日落恢復規律。'
+          : '亂紀元開始：太陽的運行失去規律。', want === 'stable' ? 'green' : 'red');
+      }
+    } else this.eraTimer = 0;
+    // 天象事件
+    for (const k in info.flags) {
+      const on = info.flags[k];
+      const cool = (k === "feixingStill" || k === "shuangri" || k === "lianzhu") ? 3 : 0.8;
+      if (on && !this.flags[k] && (this.flagCool[k] === undefined || t - this.flagCool[k] > cool)) {
+        const def = EVENT_DEFS[k];
+        this.log(t, k, def.msg, def.c);
+        this.flagCool[k] = t;
+      }
+      this.flags[k] = on;
+    }
+    // 天空軌跡取樣
+    this.skyT += dt;
+    if (this.skyT > 0.02) {
+      this.skyT = 0;
+      for (let i = 0; i < 3; i++) {
+        const u = info.stars[i].u, tr = this.skyTrail[i];
+        tr.push([Math.atan2(u[1], u[0]), Math.asin(Math.max(-1, Math.min(1, u[2])))]);
+        if (tr.length > 260) tr.shift();
+      }
+    }
+    // 行星失落：被甩出或撞進恆星
+    if (info.minStarDist < 0.035) { this.catastrophe('行星墜入' + this.starName(info.stars.findIndex(x => x.d === info.minStarDist)), 'engulf'); return; }
+    if (!info.bound && info.distCOM > 140) { this.lostTimer += dt; } else this.lostTimer = 0;
+    if (this.lostTimer > 3) { this.catastrophe('行星被拋入星際深空', 'eject'); return; }
+    this.updateCiv(dt, info);
+  }
+  catastrophe(reason, kind) {
+    if (this.civ) this.endCiv(reason, kind);
+    else this.log(this.sim.t, 'lost', reason + '。', 'red');
+    // 略過地質時間：行星重新被一顆恆星捕獲
+    let host = Math.floor(this.rng() * 3);
+    if (this.rng() < 0.6) { let b = 0; for (let i = 0; i < 3; i++) if (this.sim.stars[i].L > b) { b = this.sim.stars[i].L; host = i; } }
+    placePlanet(this.sim, host, this.rng);
+    this.T = 15; this.lostTimer = 0; this.lastCivEnd = this.sim.t - 4;
+    this.log(this.sim.t, 'reset', `略過漫長的地質時間：行星重新被${this.starName(host)}捕獲。`, 'blue');
+  }
+  starName(i) { return ['太陽甲', '太陽乙', '太陽丙'][i] || '恆星'; }
+  hostName() { return this.starName(this.info.host); }
+
+  updateCiv(dt, info) {
+    const T = this.T, t = this.sim.t;
+    if (!this.civ) {
+      const ok = this.era === 'stable' && T > -10 && T < 40;
+      this.recoverTimer = ok ? this.recoverTimer + dt : Math.max(0, this.recoverTimer - dt * 0.5);
+      if (this.recoverTimer > 2.5 && t - this.lastCivEnd > 5) { this.newCiv(); this.ruins = null; }
+      else if (this.era === 'chaos' && t - this.lastCivEnd > 70) this.catastrophe('亂紀元持續了數十年', 'skip');
+      return;
+    }
+    const c = this.civ;
+    // 毀滅條件
+    if (T > 140) { this.endCiv(this.flags.sanri ? '三日凌空，大地被烈日焚毀' : '烈日焚毀了地表', 'heat'); return; }
+    if (this.flags.lianzhu && info.tide > 1e-7 && info.disks === 3) { this.endCiv('三日連珠，潮汐力疊加引發巨型地震與海嘯', 'tide'); return; }
+    if (c.dehyd) { c.dehydTime = (c.dehydTime || 0) + dt; if (c.dehydTime > 90) { this.endCiv('亂紀元持續太久，脫水者無法復原', 'cold'); return; } }
+    if (c.dehyd && T < -60) { c.frozen += dt; if (c.frozen > 40) { this.endCiv('長夜過久，脫水者全數凍毀', 'cold'); return; } } else c.frozen = 0;
+    if (!c.dehyd && T < -120) { this.endCiv('嚴寒驟降，來不及脫水', 'cold'); return; }
+    // 脫水與浸泡
+    const harsh = T < -35 || T > 65;
+    if (!c.dehyd) {
+      c.badT = harsh ? c.badT + dt : 0;
+      if (c.badT > 0.06) { c.dehyd = true; c.dehydCount++; c.goodT = 0; this.log(t, 'dehyd', `第 ${c.id} 號文明全體脫水，等待恆紀元。`, 'yellow'); }
+    } else {
+      const good = T > -15 && T < 45 && this.era === 'stable';
+      c.goodT = good ? c.goodT + dt : 0;
+      if (c.goodT > 0.25) { c.dehyd = false; c.badT = 0; c.dehydTime = 0; this.log(t, 'rehyd', `浸泡復活：第 ${c.id} 號文明重新甦醒。`, 'green'); }
+    }
+    // 發展
+    if (!c.dehyd) {
+      let rate = 0;
+      if (T > -10 && T < 40) rate = 1; else if (T > -30 && T < 58) rate = 0.4;
+      if (this.era === 'chaos') rate *= 0.5;
+      c.years += dt * rate;
+      let a = 0; for (let i = 0; i < AGES.length; i++) if (c.years >= AGES[i].y) a = i;
+      if (a > c.age) { c.age = a; this.log(t, 'age', `第 ${c.id} 號文明進入${AGES[a].n}。${AGES[a].d}`, 'yellow'); }
+      if (c.years >= CIV_END) this.endCiv('飛出三體星系', 'win');
+    }
+  }
+
+  advance(simDt, twin) {
+    let remain = simDt; const chunk = 0.004;
+    while (remain > 1e-9) {
+      const h = Math.min(chunk, remain);
+      this.sim.stepTo(this.sim.t + h);
+      if (twin) twin.stepTo(this.sim.t);
+      this.update(h);
+      if (this.onStep) this.onStep();
+      remain -= h;
+    }
+  }
+  snapshot() {
+    return JSON.stringify({ sim: this.sim.getState(), T: this.T, era: this.era, eraSince: this.eraSince, flags: this.flags, flagCool: this.flagCool, civ: this.civ, civCounter: this.civCounter, history: this.history, lastCivEnd: this.lastCivEnd, recoverTimer: this.recoverTimer, ruins: this.ruins || null, nEvents: this.events.length });
+  }
+  restore(str) {
+    const o = JSON.parse(str);
+    this.sim.setState(o.sim); this.T = o.T; this.era = o.era; this.eraSince = o.eraSince; this.flags = o.flags; this.flagCool = o.flagCool;
+    this.civ = o.civ; this.civCounter = o.civCounter; this.history = o.history; this.lastCivEnd = o.lastCivEnd; this.recoverTimer = o.recoverTimer; this.ruins = o.ruins;
+    this.events.length = o.nEvents; this.skyTrail = [[], [], []]; this.eraTimer = 0; this.lostTimer = 0;
+    this.compute();
+  }
+}
+
+if (typeof module !== 'undefined' && module.exports) module.exports = { Sim, World, PRESETS, AGES, CIV_END, EVENT_DEFS, G, mulberry32, starProps };
+
+// ================= 太空環境音（Web Audio 即時合成） =================
+class Sound {
+  constructor() { this.ctx = null; this.on = false; this.era = 'stable'; }
+  init() {
+    if (this.ctx) return;
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    const c = this.ctx = new AC();
+    this.master = c.createGain(); this.master.gain.value = 0;
+    const comp = c.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 3;
+    this.master.connect(comp); comp.connect(c.destination);
+    // 回聲空間
+    this.verb = c.createConvolver(); this.verb.buffer = this.impulse(3.2);
+    const wet = c.createGain(); wet.gain.value = 0.55; this.verb.connect(wet); wet.connect(this.master);
+    this.dry = c.createGain(); this.dry.gain.value = 0.8; this.dry.connect(this.master);
+    // 低頻嗡鳴
+    this.drone = c.createGain(); this.drone.gain.value = 0.16; this.drone.connect(this.dry);
+    [55, 55.4, 82.4].forEach((f, i) => {
+      const o = c.createOscillator(); o.type = i === 2 ? 'triangle' : 'sine'; o.frequency.value = f;
+      const g = c.createGain(); g.gain.value = i === 2 ? 0.25 : 0.5; o.connect(g); g.connect(this.drone); o.start();
+    });
+    // 和弦墊音
+    this.padF = c.createBiquadFilter(); this.padF.type = 'lowpass'; this.padF.frequency.value = 700; this.padF.Q.value = 0.7;
+    this.padG = c.createGain(); this.padG.gain.value = 0.07; this.padF.connect(this.padG); this.padG.connect(this.dry); this.padG.connect(this.verb);
+    const lfo = c.createOscillator(); lfo.frequency.value = 0.07; const lg = c.createGain(); lg.gain.value = 260; lfo.connect(lg); lg.connect(this.padF.frequency); lfo.start();
+    this.voices = [];
+    for (let i = 0; i < 5; i++) {
+      const g = c.createGain(); g.gain.value = 0.2; g.connect(this.padF);
+      const pair = [0, 1].map(k => { const o = c.createOscillator(); o.type = 'sawtooth'; o.detune.value = k ? 7 : -7; o.connect(g); o.start(); return o; });
+      this.voices.push({ g, pair });
+    }
+    // 風聲（棕噪音）
+    const nb = c.createBuffer(1, c.sampleRate * 4, c.sampleRate), d = nb.getChannelData(0); let last = 0;
+    for (let i = 0; i < d.length; i++) { const w = Math.random() * 2 - 1; last = (last + 0.02 * w) / 1.02; d[i] = last * 3.5; }
+    const ns = c.createBufferSource(); ns.buffer = nb; ns.loop = true;
+    this.windF = c.createBiquadFilter(); this.windF.type = 'bandpass'; this.windF.frequency.value = 420; this.windF.Q.value = 0.6;
+    this.windG = c.createGain(); this.windG.gain.value = 0.0;
+    ns.connect(this.windF); this.windF.connect(this.windG); this.windG.connect(this.dry); ns.start();
+    const wl = c.createOscillator(); wl.frequency.value = 0.11; const wlg = c.createGain(); wlg.gain.value = 260; wl.connect(wlg); wlg.connect(this.windF.frequency); wl.start();
+    this.setEra(this.era, true);
+  }
+  impulse(sec) {
+    const c = this.ctx, len = c.sampleRate * sec, b = c.createBuffer(2, len, c.sampleRate);
+    for (let ch = 0; ch < 2; ch++) { const d = b.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
+    return b;
+  }
+  setOn(v) {
+    this.on = v; if (v) this.init(); if (!this.ctx) return;
+    if (v && this.ctx.state === 'suspended') this.ctx.resume();
+    this.master.gain.setTargetAtTime(v ? 0.9 : 0, this.ctx.currentTime, 0.4);
+  }
+  hz(midi) { return 440 * Math.pow(2, (midi - 69) / 12); }
+  setEra(era, force) {
+    if (era === this.era && !force) return; this.era = era; if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    // 恆紀元：A 大調九和弦；亂紀元：不協和的增四度與小二度
+    const chord = era === 'stable' ? [45, 52, 59, 61, 64] : [45, 51, 58, 63, 64];
+    this.voices.forEach((v, i) => v.pair.forEach(o => o.frequency.setTargetAtTime(this.hz(chord[i]), t, 1.6)));
+    this.padF.frequency.setTargetAtTime(era === 'stable' ? 650 : 1250, t, 2);
+    this.windG.gain.setTargetAtTime(era === 'stable' ? 0.0 : 0.22, t, 2);
+    this.drone.gain.setTargetAtTime(era === 'stable' ? 0.14 : 0.24, t, 2);
+  }
+  setCold(k) { if (this.ctx && this.era === 'stable') this.windG.gain.setTargetAtTime(0.25 * k, this.ctx.currentTime, 2); }
+  bell(midi, when = 0, vol = 0.18, len = 3.2) {
+    if (!this.ctx || !this.on) return;
+    const c = this.ctx, t = c.currentTime + when, f = this.hz(midi);
+    const car = c.createOscillator(), mod = c.createOscillator(), mg = c.createGain(), g = c.createGain();
+    car.frequency.value = f; mod.frequency.value = f * 2.41;
+    mg.gain.setValueAtTime(f * 2.2, t); mg.gain.exponentialRampToValueAtTime(1, t + len);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    mod.connect(mg); mg.connect(car.frequency); car.connect(g); g.connect(this.dry); g.connect(this.verb);
+    car.start(t); mod.start(t); car.stop(t + len + 0.1); mod.stop(t + len + 0.1);
+  }
+  boom() {
+    if (!this.ctx || !this.on) return;
+    const c = this.ctx, t = c.currentTime, o = c.createOscillator(), g = c.createGain();
+    o.frequency.setValueAtTime(70, t); o.frequency.exponentialRampToValueAtTime(24, t + 2.5);
+    g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 3);
+    o.connect(g); g.connect(this.dry); g.connect(this.verb); o.start(t); o.stop(t + 3.1);
+  }
+  alarm() { [81, 76, 81, 76].forEach((m, i) => this.bell(m, i * 0.22, 0.09, 1.2)); }
+  event(e) {
+    if (!this.on) return;
+    switch (e.key) {
+      case 'age': [69, 73, 76, 81].forEach((m, i) => this.bell(m, i * 0.16, 0.12)); break;
+      case 'civStart': [64, 69, 71].forEach((m, i) => this.bell(m, i * 0.3, 0.1)); break;
+      case 'civWin': [69, 73, 76, 81, 85, 88].forEach((m, i) => this.bell(m, i * 0.14, 0.13, 4)); break;
+      case 'civEnd': case 'lost': this.boom(); this.bell(45, 0.4, 0.15, 5); break;
+      case 'sanri': case 'lianzhu': this.alarm(); break;
+      case 'eraChaos': this.bell(58, 0, 0.12, 4); this.bell(64, 0.05, 0.1, 4); break;
+      case 'eraStable': this.bell(76, 0, 0.1); this.bell(81, 0.2, 0.08); break;
+      case 'dehyd': this.bell(52, 0, 0.1, 2.5); break;
+      case 'rehyd': this.bell(76, 0, 0.1, 2.5); break;
+      default: this.bell(88, 0, 0.05, 1.5);
+    }
+  }
+}
+
+// ================= 共用工具 =================
+const AUS = 10; // 場景單位 / AU
+const LOGDEPTH_V = '#include <common>\n#include <logdepthbuf_pars_vertex>\n';
+const LOGDEPTH_F = '#include <logdepthbuf_pars_fragment>\n';
+
+function hash3(x, y, z) { let h = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453; return h - Math.floor(h); }
+function vnoise3(x, y, z) {
+  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z), xf = x - xi, yf = y - yi, zf = z - zi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf), w = zf * zf * (3 - 2 * zf);
+  const l = (a, b, t) => a + (b - a) * t;
+  const c = (i, j, k) => hash3(xi + i, yi + j, zi + k);
+  return l(l(l(c(0, 0, 0), c(1, 0, 0), u), l(c(0, 1, 0), c(1, 1, 0), u), v), l(l(c(0, 0, 1), c(1, 0, 1), u), l(c(0, 1, 1), c(1, 1, 1), u), v), w);
+}
+function fbm3(x, y, z, oct = 5) { let a = 0.5, s = 0, f = 1; for (let i = 0; i < oct; i++) { s += a * vnoise3(x * f, y * f, z * f); f *= 2.03; a *= 0.5; } return s; }
+
+function glowTexture(stops) {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  stops.forEach(s => gr.addColorStop(s[0], s[1])); g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+  const t = new THREE.CanvasTexture(c); return t;
+}
+
+// 軌道攝影機：拖曳旋轉、滾輪/雙指縮放（對數距離）
+class OrbitCam {
+  constructor(el) {
+    this.theta = 0.6; this.phi = 1.05; this.logD = Math.log(200); this.tlogD = this.logD;
+    this.tTheta = this.theta; this.tPhi = this.phi;
+    this.minD = 0.001; this.maxD = 5000; this.phiMin = 0.05; this.phiMax = Math.PI - 0.05;
+    this.onZoomPastMin = null; this.onZoomPastMax = null; this.enabled = true; this.autoSpin = 0;
+    const pts = new Map(); let pinch0 = 0, lastTap = 0;
+    el.addEventListener('pointerdown', e => { el.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); if (pts.size === 2) pinch0 = this.pinchDist(pts); this.autoSpin = 0; });
+    el.addEventListener('pointermove', e => {
+      if (!pts.has(e.pointerId) || !this.enabled) return;
+      const p = pts.get(e.pointerId), dx = e.clientX - p[0], dy = e.clientY - p[1];
+      pts.set(e.pointerId, [e.clientX, e.clientY]);
+      if (pts.size === 1) { this.tTheta -= dx * 0.006; this.tPhi = Math.max(this.phiMin, Math.min(this.phiMax, this.tPhi - dy * 0.005)); }
+      else if (pts.size === 2) { const d = this.pinchDist(pts); if (pinch0 > 0) this.zoomBy(Math.log(pinch0 / d) * 1.4); pinch0 = d; }
+    });
+    const up = e => { pts.delete(e.pointerId); pinch0 = pts.size === 2 ? this.pinchDist(pts) : 0; };
+    el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+    el.addEventListener('wheel', e => { e.preventDefault(); if (this.enabled) this.zoomBy(Math.sign(e.deltaY) * Math.min(0.35, Math.abs(e.deltaY) * 0.0016)); }, { passive: false });
+  }
+  pinchDist(pts) { const a = [...pts.values()]; return Math.hypot(a[0][0] - a[1][0], a[0][1] - a[1][1]) + 1; }
+  zoomBy(k) {
+    const n = this.tlogD + k;
+    if (n < Math.log(this.minD)) { this.tlogD = Math.log(this.minD); if (k < 0 && this.logD < Math.log(this.minD) + 0.08 && this.onZoomPastMin) this.onZoomPastMin(); return; }
+    if (n > Math.log(this.maxD)) { this.tlogD = Math.log(this.maxD); if (k > 0 && this.logD > Math.log(this.maxD) - 0.08 && this.onZoomPastMax) this.onZoomPastMax(); return; }
+    this.tlogD = n;
+  }
+  setDist(d, instant) { this.tlogD = Math.log(Math.max(this.minD, Math.min(this.maxD, d))); if (instant) this.logD = this.tlogD; }
+  get dist() { return Math.exp(this.logD); }
+  update(dt, cam, target) {
+    const k = 1 - Math.exp(-dt * 7);
+    this.tTheta += this.autoSpin * dt;
+    this.theta += (this.tTheta - this.theta) * k; this.phi += (this.tPhi - this.phi) * k; this.logD += (this.tlogD - this.logD) * k;
+    const d = this.dist, sp = Math.sin(this.phi);
+    cam.position.set(target.x + d * sp * Math.sin(this.theta), target.y + d * Math.cos(this.phi), target.z + d * sp * Math.cos(this.theta));
+    cam.lookAt(target);
+  }
+}
+
+// ================= 太空視角 =================
+const PLANET_R = 4.26e-5 * AUS;   // 行星真實半徑（場景單位）
+const MOON_ORBIT = PLANET_R * 34; // 巨月距離（誇張化，較月地距離近）
+const MOON_R = PLANET_R * 0.42;
+
+class SpaceView {
+  constructor() {
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(48, 1, 1e-6, 3e6);
+    this.focus = 'com'; this.focusPrev = null; this.focusBlend = 1;
+    this.focusPhys = [0, 0, 0];
+    this.spin = 0; this.time = 0;
+    this.showHZ = true;
+    this.buildBackground();
+    this.buildStars();
+    this.buildPlanet();
+    this.buildTrails();
+    this.buildGrid();
+  }
+  map(px, py, pz, out) { const f = this.focusPhys; out.set((px - f[0]) * AUS, (pz - f[2]) * AUS, -(py - f[1]) * AUS); return out; }
+
+  buildBackground() {
+    const n = 7000, pos = new Float32Array(n * 3), col = new Float32Array(n * 3);
+    const rng = mulberry32(77);
+    for (let i = 0; i < n; i++) {
+      let x, y, z;
+      if (i < 3000) { // 銀河帶
+        const a = rng() * Math.PI * 2, b = (rng() + rng() + rng() - 1.5) * 0.22;
+        x = Math.cos(a) * Math.cos(b); z = Math.sin(a) * Math.cos(b); y = Math.sin(b);
+        const t = 0.45; const y2 = y * Math.cos(t) - x * Math.sin(t), x2 = y * Math.sin(t) + x * Math.cos(t); x = x2; y = y2;
+      } else { const u = rng() * 2 - 1, a = rng() * Math.PI * 2, s = Math.sqrt(1 - u * u); x = s * Math.cos(a); y = u; z = s * Math.sin(a); }
+      pos[i * 3] = x; pos[i * 3 + 1] = y; pos[i * 3 + 2] = z;
+      const tint = rng(), br = 0.35 + Math.pow(rng(), 3) * 0.9;
+      col[i * 3] = br * (tint < 0.2 ? 1 : 0.8 + tint * 0.2); col[i * 3 + 1] = br * 0.88; col[i * 3 + 2] = br * (tint > 0.75 ? 1.15 : 0.92);
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const m = new THREE.PointsMaterial({ size: 1.6, sizeAttenuation: false, vertexColors: true, transparent: true, depthWrite: false });
+    this.bg = new THREE.Points(g, m); this.bg.renderOrder = -10; this.bg.frustumCulled = false;
+    this.scene.add(this.bg);
+  }
+
+  buildStars() {
+    this.starObjs = [];
+    const glowT = glowTexture([[0, 'rgba(255,255,255,1)'], [0.12, 'rgba(255,255,255,0.75)'], [0.32, 'rgba(255,255,255,0.18)'], [1, 'rgba(255,255,255,0)']]);
+    const haloT = glowTexture([[0, 'rgba(255,255,255,0.45)'], [0.25, 'rgba(255,255,255,0.08)'], [1, 'rgba(255,255,255,0)']]);
+    const geo = new THREE.SphereGeometry(1, 48, 24);
+    for (let i = 0; i < 3; i++) {
+      const mat = new THREE.ShaderMaterial({
+        uniforms: { uCol: { value: new THREE.Color() }, uT: { value: 0 }, uSeed: { value: i * 13.1 } },
+        vertexShader: LOGDEPTH_V + `varying vec3 vN; varying vec3 vP; varying vec3 vV;
+          void main(){ vN=normalize(normalMatrix*normal); vP=position; vec4 mv=modelViewMatrix*vec4(position,1.); vV=normalize(-mv.xyz); gl_Position=projectionMatrix*mv;
+          #include <logdepthbuf_vertex>
+          }`,
+        fragmentShader: LOGDEPTH_F + `uniform vec3 uCol; uniform float uT; uniform float uSeed; varying vec3 vN; varying vec3 vP; varying vec3 vV;
+          float h(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
+          float n(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(mix(h(i),h(i+vec3(1,0,0)),f.x),mix(h(i+vec3(0,1,0)),h(i+vec3(1,1,0)),f.x),f.y),mix(mix(h(i+vec3(0,0,1)),h(i+vec3(1,0,1)),f.x),mix(h(i+vec3(0,1,1)),h(i+vec3(1,1,1)),f.x),f.y),f.z);}
+          void main(){
+#include <logdepthbuf_fragment>
+
+            vec3 p=vP*6.+uSeed; float g=n(p+uT*.3)*.6+n(p*2.3-uT*.5)*.3+n(p*5.1+uT)*.1;
+            float limb=pow(max(dot(vN,vV),0.),.45);
+            vec3 c=mix(uCol*.55,mix(uCol,vec3(1.),.55),g)*(.35+.85*limb);
+            gl_FragColor=vec4(c,1.); }`
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowT, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+      const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloT, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+      glow.renderOrder = 2; halo.renderOrder = 1;
+      this.scene.add(mesh, glow, halo);
+      const hz = new THREE.Mesh(new THREE.RingGeometry(Math.sqrt(0.53 / 1.1), 1, 160, 1), new THREE.MeshBasicMaterial({ color: 0x3dffa0, transparent: true, opacity: 0.045, side: THREE.DoubleSide, depthWrite: false }));
+      hz.rotation.x = -Math.PI / 2; this.scene.add(hz);
+      const hzEdge = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(Array.from({ length: 160 }, (_, k) => new THREE.Vector3(Math.cos(k / 160 * 6.2832), Math.sin(k / 160 * 6.2832), 0))), new THREE.LineBasicMaterial({ color: 0x3dffa0, transparent: true, opacity: 0.22, depthWrite: false }));
+      hzEdge.rotation.x = -Math.PI / 2; this.scene.add(hzEdge);
+      this.starObjs.push({ mesh, glow, halo, hz, hzEdge, pos: new THREE.Vector3() });
+    }
+  }
+
+  // 行星：程序生成地表、夜間城市燈光、雲層、大氣
+  buildPlanet() {
+    this.texW = 512; this.texH = 256;
+    this.dayCanvas = document.createElement('canvas'); this.dayCanvas.width = this.texW; this.dayCanvas.height = this.texH;
+    this.nightCanvas = document.createElement('canvas'); this.nightCanvas.width = this.texW; this.nightCanvas.height = this.texH;
+    this.cloudCanvas = document.createElement('canvas'); this.cloudCanvas.width = this.texW; this.cloudCanvas.height = this.texH;
+    this.dayTex = new THREE.CanvasTexture(this.dayCanvas); this.nightTex = new THREE.CanvasTexture(this.nightCanvas); this.cloudTex = new THREE.CanvasTexture(this.cloudCanvas);
+    [this.dayTex, this.nightTex, this.cloudTex].forEach(t => { t.colorSpace = undefined; t.anisotropy = 4; });
+    const sunU = () => ({ value: [new THREE.Vector3(1, 0, 0), new THREE.Vector3(), new THREE.Vector3()] });
+    const common = {
+      uSunDir: sunU(), uSunCol: { value: [new THREE.Color(), new THREE.Color(), new THREE.Color()] }, uSunI: { value: [1, 0, 0] }
+    };
+    this.planetUniforms = Object.assign({ uDay: { value: this.dayTex }, uNight: { value: this.nightTex }, uLights: { value: 1 } }, common);
+    const pv = LOGDEPTH_V + `varying vec3 vN; varying vec2 vUv; varying vec3 vW;
+      void main(){ vN=normalize(mat3(modelMatrix)*normal); vUv=uv; vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w;
+      #include <logdepthbuf_vertex>
+      }`;
+    const lightFn = `uniform vec3 uSunDir[3]; uniform vec3 uSunCol[3]; uniform float uSunI[3];
+      vec3 lightAt(vec3 n, out float L){ vec3 s=vec3(0.); L=0.; for(int i=0;i<3;i++){ float d=max(dot(n,uSunDir[i]),0.); float w=smoothstep(-.08,.25,dot(n,uSunDir[i]));
+        s+=uSunCol[i]*uSunI[i]*(d*.9+w*.1); L+=uSunI[i]*w; } return s; }`;
+    const pmat = new THREE.ShaderMaterial({
+      uniforms: this.planetUniforms, vertexShader: pv,
+      fragmentShader: LOGDEPTH_F + lightFn + `uniform sampler2D uDay; uniform sampler2D uNight; uniform float uLights; varying vec3 vN; varying vec2 vUv; varying vec3 vW;
+        void main(){
+#include <logdepthbuf_fragment>
+
+          vec3 n=normalize(vN); float L; vec3 li=lightAt(n,L);
+          vec3 base=texture2D(uDay,vUv).rgb;
+          vec3 col=base*(li+vec3(.012,.016,.03));
+          vec3 night=texture2D(uNight,vUv).rgb*uLights*smoothstep(.35,.0,L);
+          vec3 v=normalize(cameraPosition-vW); float fr=pow(1.-max(dot(n,v),0.),3.);
+          col+=night*1.6+vec3(.3,.55,1.)*fr*min(L,1.2)*.6;
+          gl_FragColor=vec4(col,1.); }`
+    });
+    this.planet = new THREE.Mesh(new THREE.SphereGeometry(1, 96, 64), pmat);
+    this.planetTilt = new THREE.Group(); this.planetTilt.rotation.z = 0.26; this.planetTilt.add(this.planet);
+    this.cloudUniforms = Object.assign({ uC: { value: this.cloudTex } }, common);
+    const cmat = new THREE.ShaderMaterial({
+      uniforms: this.cloudUniforms, vertexShader: pv, transparent: true, depthWrite: false,
+      fragmentShader: LOGDEPTH_F + lightFn + `uniform sampler2D uC; varying vec3 vN; varying vec2 vUv; varying vec3 vW;
+        void main(){
+#include <logdepthbuf_fragment>
+
+          float a=texture2D(uC,vUv).r; float L; vec3 li=lightAt(normalize(vN),L);
+          gl_FragColor=vec4(li*.95+vec3(.01),a*.85); }`
+    });
+    this.clouds = new THREE.Mesh(new THREE.SphereGeometry(1.012, 64, 48), cmat);
+    this.planetTilt.add(this.clouds);
+    this.atmUniforms = Object.assign({}, common);
+    const amat = new THREE.ShaderMaterial({
+      uniforms: this.atmUniforms, side: THREE.BackSide, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      vertexShader: pv,
+      fragmentShader: LOGDEPTH_F + lightFn + `varying vec3 vN; varying vec2 vUv; varying vec3 vW;
+        void main(){
+#include <logdepthbuf_fragment>
+
+          vec3 n=normalize(vN); vec3 v=normalize(cameraPosition-vW); float rim=pow(max(1.0-abs(dot(n,v))*1.0,0.),2.2);
+          float L; vec3 li=lightAt(-n,L); li=max(li,lightAt(n,L)*.0);
+          gl_FragColor=vec4(vec3(.35,.62,1.)*rim*clamp(L+.04,0.,1.4)*.9,1.); }`
+    });
+    this.atm = new THREE.Mesh(new THREE.SphereGeometry(1.06, 64, 48), amat);
+    this.planetTilt.add(this.atm);
+    this.scene.add(this.planetTilt);
+    // 巨月
+    this.moonUniforms = Object.assign({}, common);
+    this.moon = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), new THREE.ShaderMaterial({
+      uniforms: this.moonUniforms, vertexShader: pv,
+      fragmentShader: LOGDEPTH_F + lightFn + `varying vec3 vN; varying vec2 vUv; varying vec3 vW;
+        float h(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
+        void main(){
+#include <logdepthbuf_fragment>
+
+          float L; vec3 li=lightAt(normalize(vN),L);
+          vec2 g=vUv*vec2(18.,9.); vec2 c=floor(g); float cr=step(.82,h(c))*smoothstep(.5,.2,length(fract(g)-.5));
+          float m=.62-.18*cr+.08*h(floor(vUv*80.));
+          gl_FragColor=vec4(vec3(m)*li+vec3(.008),1.); }`
+    }));
+    this.scene.add(this.moon);
+    this.planetPos = new THREE.Vector3();
+  }
+
+  // 依世界種子產生地表，依氣候重新上色
+  genPlanetBase(seed) {
+    const W = this.texW, H = this.texH, hgt = new Float32Array(W * H), cl = new Float32Array(W * H);
+    const o = seed % 1000;
+    for (let y = 0; y < H; y++) {
+      const lat = (0.5 - y / H) * Math.PI, cy = Math.cos(lat), sy = Math.sin(lat);
+      for (let x = 0; x < W; x++) {
+        const lon = x / W * Math.PI * 2, px = cy * Math.cos(lon), pz = cy * Math.sin(lon);
+        const v = fbm3(px * 1.6 + o, sy * 1.6, pz * 1.6, 6);
+        hgt[y * W + x] = v + 0.12 * fbm3(px * 5 + o, sy * 5, pz * 5, 3);
+        cl[y * W + x] = fbm3(px * 2.4 + 50 + o, sy * 4.2, pz * 2.4, 5);
+      }
+    }
+    this.hgt = hgt; this.climKey = '';
+    const g = this.cloudCanvas.getContext('2d'), im = g.createImageData(W, H);
+    for (let i = 0; i < W * H; i++) { const a = Math.max(0, Math.min(1, (cl[i] - 0.5) * 3.2)); im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = a * 255; im.data[i * 4 + 3] = 255; }
+    g.putImageData(im, 0, 0); this.cloudTex.needsUpdate = true;
+  }
+  paintPlanet(T) {
+    const snow = Math.max(0, Math.min(1, (-T - 5) / 70)), heat = Math.max(0, Math.min(1, (T - 40) / 110));
+    const key = Math.round(snow * 10) + ':' + Math.round(heat * 10);
+    if (key === this.climKey) return; this.climKey = key;
+    const W = this.texW, H = this.texH, g = this.dayCanvas.getContext('2d'), im = g.createImageData(W, H), d = im.data;
+    const sea = 0.5 - heat * 0.12; // 高溫時海洋蒸發
+    for (let y = 0; y < H; y++) {
+      const lat = Math.abs(0.5 - y / H) * 2;
+      const ice = Math.min(1, Math.max(0, (lat - (0.82 - snow * 0.8 + heat * 0.3)) * 8));
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x, h = this.hgt[i]; let r, gg, b;
+        if (h < sea) { const k = (sea - h) * 3; r = 16 - k * 10; gg = 52 - k * 20; b = 96 - k * 30; if (heat > 0.3) { r += 60 * heat; gg += 30 * heat; b -= 30 * heat; } }
+        else {
+          const k = (h - sea) * 4;
+          r = 62 + k * 70; gg = 98 + k * 25 - lat * 30; b = 48 + k * 30;
+          if (lat < 0.3 && h < sea + 0.06) { r += 30; gg += 15; }
+          r = r * (1 - heat) + (120 + k * 60) * heat; gg = gg * (1 - heat) + (62 + k * 20) * heat; b = b * (1 - heat) + (38) * heat;
+        }
+        const s = Math.max(ice, snow * (h > sea ? 0.85 : 0.6));
+        r = r * (1 - s) + 228 * s; gg = gg * (1 - s) + 236 * s; b = b * (1 - s) + 245 * s;
+        d[i * 4] = r; d[i * 4 + 1] = gg; d[i * 4 + 2] = b; d[i * 4 + 3] = 255;
+      }
+    }
+    g.putImageData(im, 0, 0); this.dayTex.needsUpdate = true;
+  }
+  paintLights(age, seed, alive) {
+    const key = age + ':' + seed + ':' + alive; if (key === this.lightKey) return; this.lightKey = key;
+    const W = this.texW, H = this.texH, g = this.nightCanvas.getContext('2d');
+    g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+    if (!alive || !this.hgt) { this.nightTex.needsUpdate = true; return; }
+    const rng = mulberry32(seed), n = [20, 50, 90, 160, 380, 900, 1500, 2300, 2800][age];
+    const centers = []; for (let k = 0; k < 6 + age * 2; k++) centers.push([rng() * W, H * (0.2 + rng() * 0.6)]);
+    for (let k = 0; k < n; k++) {
+      const c = centers[Math.floor(rng() * centers.length)], sp = 6 + age * 7;
+      const x = Math.floor((c[0] + (rng() - 0.5) * sp * 2 + W) % W), y = Math.floor(Math.max(1, Math.min(H - 2, c[1] + (rng() - 0.5) * sp)));
+      if (this.hgt[y * W + x] < 0.5) continue;
+      const b = 0.35 + rng() * 0.65, warm = age < 5;
+      g.fillStyle = warm ? `rgba(255,${150 + rng() * 60},70,${b})` : `rgba(255,${210 + rng() * 40},${150 + rng() * 60},${b})`;
+      g.fillRect(x, y, rng() < 0.15 ? 2 : 1, 1);
+    }
+    if (age >= 6) { g.globalAlpha = 0.25; g.strokeStyle = '#ffd890'; for (let k = 0; k < age * 3; k++) { const a = centers[k % centers.length], b = centers[(k * 7 + 3) % centers.length]; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); } g.globalAlpha = 1; }
+    this.nightTex.needsUpdate = true;
+  }
+
+  buildTrails() {
+    this.trails = [];
+    const mk = (n, color, op) => {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+      g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+      const line = new THREE.Line(g, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false }));
+      line.frustumCulled = false; this.scene.add(line);
+      return { line, n, buf: new Float64Array(n * 3), head: 0, count: 0, last: null, color: new THREE.Color(color) };
+    };
+    for (let i = 0; i < 3; i++) this.trails.push(mk(1400, 0xffffff, 0.85));
+    this.trails.push(mk(1800, 0x6ab8ff, 0.9));
+    this.twinTrails = [0, 1, 2].map(() => mk(1400, 0xff7ad9, 0.75));
+  }
+  clearTrails() { [...this.trails, ...this.twinTrails].forEach(t => { t.head = 0; t.count = 0; t.last = null; }); }
+  pushTrail(t, x, y, z, minStep) {
+    if (t.last && Math.hypot(x - t.last[0], y - t.last[1], z - t.last[2]) < minStep) {
+      // 更新最新點，讓線條跟上目前位置
+      const k = ((t.head - 1 + t.n) % t.n) * 3; t.buf[k] = x; t.buf[k + 1] = y; t.buf[k + 2] = z; return;
+    }
+    const k = t.head * 3; t.buf[k] = x; t.buf[k + 1] = y; t.buf[k + 2] = z;
+    t.head = (t.head + 1) % t.n; t.count = Math.min(t.n, t.count + 1);
+    t.last = [x, y, z];
+    // 下一點先佔位，作為「目前位置」
+    const k2 = t.head * 3; t.buf[k2] = x; t.buf[k2 + 1] = y; t.buf[k2 + 2] = z; t.head = (t.head + 1) % t.n; t.count = Math.min(t.n, t.count + 1);
+  }
+  writeTrail(t, visible) {
+    t.line.visible = visible && t.count > 1; if (!t.line.visible) return;
+    const p = t.line.geometry.attributes.position.array, c = t.line.geometry.attributes.color.array, f = this.focusPhys;
+    const start = (t.head - t.count + t.n) % t.n;
+    for (let i = 0; i < t.count; i++) {
+      const k = ((start + i) % t.n) * 3, a = Math.pow(i / t.count, 1.6);
+      p[i * 3] = (t.buf[k] - f[0]) * AUS; p[i * 3 + 1] = (t.buf[k + 2] - f[2]) * AUS; p[i * 3 + 2] = -(t.buf[k + 1] - f[1]) * AUS;
+      c[i * 3] = t.color.r * a; c[i * 3 + 1] = t.color.g * a; c[i * 3 + 2] = t.color.b * a;
+    }
+    t.line.geometry.setDrawRange(0, t.count);
+    t.line.geometry.attributes.position.needsUpdate = true; t.line.geometry.attributes.color.needsUpdate = true;
+  }
+
+  buildGrid() {
+    const pts = [];
+    [1, 2, 5, 10, 20, 50, 100].forEach(r => { for (let k = 0; k < 128; k++) { const a = k / 128 * 6.2832, b = (k + 1) / 128 * 6.2832; pts.push(r * Math.cos(a) * AUS, 0, r * Math.sin(a) * AUS, r * Math.cos(b) * AUS, 0, r * Math.sin(b) * AUS); } });
+    for (let k = 0; k < 12; k++) { const a = k / 12 * 6.2832; pts.push(AUS * Math.cos(a), 0, AUS * Math.sin(a), 100 * AUS * Math.cos(a), 0, 100 * AUS * Math.sin(a)); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    this.grid = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0x6ab8ff, transparent: true, opacity: 0.07, depthWrite: false }));
+    this.scene.add(this.grid);
+  }
+
+  physPos(world, key, out) {
+    const s = world.sim;
+    if (key === 'planet') { out[0] = s.pp[0]; out[1] = s.pp[1]; out[2] = s.pp[2]; }
+    else if (key === 'com') { const c = s.com(); out[0] = c[0]; out[1] = c[1]; out[2] = c[2]; }
+    else { const i = +key.slice(4); out[0] = s.sp[i * 3]; out[1] = s.sp[i * 3 + 1]; out[2] = s.sp[i * 3 + 2]; }
+    return out;
+  }
+  setFocus(key) { if (key === this.focus) return; this.focusPrev = this.focus; this.focus = key; this.focusBlend = 0; }
+
+  sampleTrails(world, twin) {
+    const s = world.sim;
+    for (let i = 0; i < 3; i++) this.pushTrail(this.trails[i], s.sp[i * 3], s.sp[i * 3 + 1], s.sp[i * 3 + 2], 0.04);
+    this.pushTrail(this.trails[3], s.pp[0], s.pp[1], s.pp[2], 0.025);
+    if (twin) for (let i = 0; i < 3; i++) this.pushTrail(this.twinTrails[i], twin.sp[i * 3], twin.sp[i * 3 + 1], twin.sp[i * 3 + 2], 0.04);
+  }
+
+  update(dt, world, cam, twin, civInfo) {
+    this.time += dt;
+    const s = world.sim, info = world.info;
+    // 浮動原點：以焦點為中心
+    const a = this.physPos(world, this.focus, [0, 0, 0]);
+    if (this.focusBlend < 1 && this.focusPrev) {
+      this.focusBlend = Math.min(1, this.focusBlend + dt / 1.1);
+      const b = this.physPos(world, this.focusPrev, [0, 0, 0]), e = this.focusBlend * this.focusBlend * (3 - 2 * this.focusBlend);
+      for (let k = 0; k < 3; k++) this.focusPhys[k] = b[k] + (a[k] - b[k]) * e;
+    } else for (let k = 0; k < 3; k++) this.focusPhys[k] = a[k];
+
+    const camD = cam.dist;
+    // 恆星
+    for (let i = 0; i < 3; i++) {
+      const o = this.starObjs[i], st = s.stars[i];
+      this.map(s.sp[i * 3], s.sp[i * 3 + 1], s.sp[i * 3 + 2], o.pos);
+      const camTo = o.pos.distanceTo(this.camera.position);
+      const trueR = st.R * 0.00465 * AUS, visR = Math.max(trueR, camTo * 0.007 * Math.pow(st.L, 0.15));
+      o.mesh.position.copy(o.pos); o.mesh.scale.setScalar(visR);
+      o.mesh.material.uniforms.uCol.value.setRGB(st.color[0], st.color[1], st.color[2]);
+      o.mesh.material.uniforms.uT.value = this.time;
+      o.glow.position.copy(o.pos); o.glow.scale.setScalar(visR * 9);
+      o.glow.material.color.setRGB(st.color[0], st.color[1], st.color[2]);
+      o.halo.position.copy(o.pos); o.halo.scale.setScalar(Math.max(visR * 26, camTo * 0.07) * Math.pow(st.L, 0.2));
+      o.halo.material.color.setRGB(st.color[0] * 0.8, st.color[1] * 0.8, st.color[2] * 0.8);
+      const inner = Math.sqrt(st.L / 1.1) * AUS, outer = Math.sqrt(st.L / 0.53) * AUS;
+      o.hz.position.copy(o.pos); o.hzEdge.position.copy(o.pos);
+      o.hz.scale.setScalar(outer); o.hzEdge.scale.setScalar(outer);
+      o.hz.visible = o.hzEdge.visible = this.showHZ && camD > 0.4;
+    }
+    // 行星
+    this.map(s.pp[0], s.pp[1], s.pp[2], this.planetPos);
+    const pTo = this.planetPos.distanceTo(this.camera.position);
+    const pVis = Math.max(PLANET_R, pTo * 0.006);
+    this.planetTilt.position.copy(this.planetPos); this.planetTilt.scale.setScalar(pVis);
+    this.planet.rotation.y = this.spin; this.clouds.rotation.y = this.spin * 1.04 + this.time * 0.004;
+    // 太陽方向（世界座標）
+    const sd = this.planetUniforms.uSunDir.value, sc = this.planetUniforms.uSunCol.value, si = this.planetUniforms.uSunI.value;
+    for (let i = 0; i < 3; i++) {
+      sd[i].copy(this.starObjs[i].pos).sub(this.planetPos).normalize();
+      const st = s.stars[i]; sc[i].setRGB(st.color[0], st.color[1], st.color[2]);
+      si[i] = Math.min(1.5, Math.pow(info.stars[i].flux, 0.4));
+    }
+    this.planetUniforms.uLights.value = civInfo.lights;
+    // 巨月
+    const mAng = this.time * 0.05 + s.t * 2.0;
+    const mDist = MOON_ORBIT * (pVis / PLANET_R);
+    this.moon.position.set(this.planetPos.x + Math.cos(mAng) * mDist, this.planetPos.y + Math.sin(mAng) * mDist * 0.12, this.planetPos.z + Math.sin(mAng) * mDist);
+    this.moon.scale.setScalar(MOON_R * pVis / PLANET_R);
+    this.moon.visible = pVis < PLANET_R * 30;
+    // 軌跡
+    for (let i = 0; i < 3; i++) { this.trails[i].color.setRGB(s.stars[i].color[0], s.stars[i].color[1], s.stars[i].color[2]); this.writeTrail(this.trails[i], true); }
+    this.writeTrail(this.trails[3], true);
+    this.twinTrails.forEach(t => this.writeTrail(t, !!twin));
+    // 網格以質心為中心
+    const com = s.com(); this.map(com[0], com[1], com[2], this.grid.position);
+    this.grid.material.opacity = 0.07;
+    // 背景星空跟隨攝影機
+    this.bg.position.copy(this.camera.position); this.bg.scale.setScalar(Math.min(1e6, Math.max(camD * 400, 1000)));
+    this.camera.near = Math.max(1e-7, camD * 0.002); this.camera.far = Math.max(1e5, camD * 1e5); this.camera.updateProjectionMatrix();
+  }
+}
+
+// ================= 城市視角 =================
+const WX = {
+  uSnow: { value: 0 }, uHeat: { value: 0 }, uNight: { value: 0 }, uWin: { value: 0 }, uBurn: { value: 0 },
+  uWinCol: { value: new THREE.Color(1, 0.78, 0.45) }
+};
+const WINDOWS_GLSL = `
+  float side = 1.0 - abs(vWN.y);
+  float hx = vWPos.x*abs(vWN.z) + vWPos.z*abs(vWN.x);
+  vec2 gg = vec2(hx/1.3, vWPos.y/1.55);
+  vec2 cell = floor(gg); vec2 ff = fract(gg);
+  float win = step(0.18,ff.x)*step(ff.x,0.82)*step(0.26,ff.y)*step(ff.y,0.8)*step(0.5,side)*step(1.4, vWPos.y);
+  float rr = fract(sin(dot(cell, vec2(12.9898,78.233)) + floor(vWPos.x*0.06)*3.1 + floor(vWPos.z*0.06)*7.7)*43758.5453);
+  float lit = step(1.0 - uWin, rr);
+  diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb*0.4 + vec3(0.05,0.07,0.1), win*0.75);
+  totalEmissiveRadiance += win*lit*uWinCol*uNight*(0.6+0.7*rr);
+`;
+function weatherize(mat, opts = {}) {
+  mat.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, WX);
+    sh.vertexShader = 'varying vec3 vWPos; varying vec3 vWN;\n' + sh.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
+      #ifdef USE_INSTANCING
+        mat4 _wm = modelMatrix * instanceMatrix;
+      #else
+        mat4 _wm = modelMatrix;
+      #endif
+      vWPos = (_wm * vec4(transformed,1.0)).xyz; vWN = normalize(mat3(_wm) * objectNormal);`);
+    sh.fragmentShader = 'uniform float uSnow; uniform float uHeat; uniform float uNight; uniform float uWin; uniform float uBurn; uniform vec3 uWinCol; varying vec3 vWPos; varying vec3 vWN;\n' +
+      sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        float upF = smoothstep(0.35, 0.85, vWN.y);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.9,0.93,0.98), uSnow*upF*${opts.snowK || '1.0'});
+        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb*vec3(0.78,0.52,0.36)+vec3(0.07,0.02,0.0), uHeat*${opts.heatK || '0.7'});
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.07,0.06,0.055), uBurn*${opts.burnK || '0.0'});
+        ${opts.windows ? WINDOWS_GLSL : ''}`);
+  };
+  mat.customProgramCacheKey = () => 'wx' + (opts.windows ? 'w' : '') + (opts.snowK || '') + (opts.heatK || '') + (opts.burnK || '');
+  return mat;
+}
+
+const PITCH = 14, ROAD = 2.6, NB = 8, RC = (NB + 0.5) * PITCH;
+const REACH = [0.16, 0.26, 0.36, 0.46, 0.6, 0.72, 0.84, 0.95, 1.02];
+const OCC = [0.32, 0.48, 0.58, 0.66, 0.78, 0.85, 0.9, 0.93, 0.95];
+const HMAX = [1.1, 1.5, 2.1, 2.7, 5, 9, 16, 27, 34];
+const FOOT = [0.45, 0.62, 0.7, 0.76, 0.86, 0.9, 0.92, 0.92, 0.92];
+const TOWER_PAL = [[0.74, 0.76, 0.8], [0.6, 0.65, 0.72], [0.8, 0.75, 0.66], [0.5, 0.58, 0.68], [0.86, 0.86, 0.88], [0.66, 0.6, 0.56], [0.55, 0.68, 0.72]];
+const PEND = { x: -2 * PITCH, z: 1 * PITCH };
+const PAD = { x: 6 * PITCH, z: -6 * PITCH };
+const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+class CityView {
+  constructor(quality) {
+    this.q = quality;
+    const sc = this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(50, 1, 0.5, 5000);
+    sc.fog = new THREE.Fog(0x9fb8d8, 300, 1700);
+    this.time = 0; this.target = new THREE.Vector3(0, 0, 0); this.targetGoal = new THREE.Vector3();
+    this.hemi = new THREE.HemisphereLight(0xbcd4ff, 0x3a3226, 0.5); sc.add(this.hemi);
+    this.sun = new THREE.DirectionalLight(0xffffff, 1); this.sun.castShadow = quality > 1;
+    this.sun.shadow.mapSize.set(2048, 2048); const sca = this.sun.shadow.camera; sca.left = -230; sca.right = 230; sca.top = 230; sca.bottom = -230; sca.near = 10; sca.far = 1600;
+    this.sun.shadow.bias = -0.0006; this.sun.shadow.normalBias = 0.4;
+    sc.add(this.sun, this.sun.target);
+    this.fill = [new THREE.DirectionalLight(0xffffff, 0), new THREE.DirectionalLight(0xffffff, 0)]; this.fill.forEach(l => sc.add(l));
+    this.buildSky(); this.buildTerrain(1); this.buildMeshes(); this.buildMonuments();
+    this.layoutSeed = -1; this.stateKey = '';
+  }
+
+  // ---------- 天空 ----------
+  buildSky() {
+    const U = this.skyU = {
+      uSunDir: { value: [new THREE.Vector3(0, 1, 0), new THREE.Vector3(), new THREE.Vector3()] },
+      uSunCol: { value: [new THREE.Color(), new THREE.Color(), new THREE.Color()] },
+      uSunVis: { value: [1, 0, 0] }, uSunSize: { value: [0.02, 0.01, 0.01] },
+      uDay: { value: 1 }, uHeat: { value: 0 }, uSnow: { value: 0 }
+    };
+    const m = new THREE.ShaderMaterial({
+      uniforms: U, side: THREE.BackSide, depthWrite: false, fog: false,
+      vertexShader: LOGDEPTH_V + `varying vec3 vD; void main(){ vD=position; vec4 mv=modelViewMatrix*vec4(position,1.); gl_Position=projectionMatrix*mv;
+        #include <logdepthbuf_vertex>
+        }`,
+      fragmentShader: LOGDEPTH_F + `uniform vec3 uSunDir[3]; uniform vec3 uSunCol[3]; uniform float uSunVis[3]; uniform float uSunSize[3]; uniform float uDay; uniform float uHeat; uniform float uSnow; varying vec3 vD;
+        void main(){
+        #include <logdepthbuf_fragment>
+          vec3 d=normalize(vD); float h=d.y;
+          vec3 nz=vec3(.008,.012,.035), nh=vec3(.03,.04,.075);
+          vec3 dz=vec3(.16,.36,.74), dh=vec3(.62,.74,.88);
+          vec3 col=mix(mix(nh,nz,clamp(h*2.2,0.,1.)), mix(dh,dz,pow(clamp(h,0.,1.),.55)), uDay);
+          for(int i=0;i<3;i++){
+            float c=dot(d,uSunDir[i]); float v=uSunVis[i]*smoothstep(-.08,.02,uSunDir[i].y);
+            float glow=pow(max(c,0.),18.)*.22+pow(max(c,0.),260.)*.55;
+            float r=uSunSize[i]; float disk=smoothstep(cos(r*1.35),cos(r),c);
+            col+=uSunCol[i]*v*glow*(.35+uDay);
+            col+=mix(uSunCol[i],vec3(1.),.5)*disk*min(v*1.6+.5,2.2)*step(.001,uSunVis[i]);
+            col+=vec3(1.,.42,.16)*pow(max(c,0.),3.)*exp(-abs(h)*7.)*v*.55*(1.-uDay*.5);
+          }
+          col=mix(col,vec3(.85,.42,.18)*(.4+uDay*.6),uHeat*.55);
+          col=mix(col,col*vec3(.92,.97,1.08),uSnow*.4);
+          col=mix(col,vec3(.05,.055,.06)*(.3+uDay),clamp(-h*5.,0.,1.));
+          gl_FragColor=vec4(col,1.); }`
+    });
+    this.sky = new THREE.Mesh(new THREE.SphereGeometry(2400, 48, 24), m); this.sky.renderOrder = -10; this.scene.add(this.sky);
+    // 夜空星點
+    const n = 2500, p = new Float32Array(n * 3), rng = mulberry32(5);
+    for (let i = 0; i < n; i++) { const u = rng() * 0.98 + 0.02, a = rng() * 6.2832, s = Math.sqrt(1 - u * u); p[i * 3] = s * Math.cos(a) * 2200; p[i * 3 + 1] = u * 2200; p[i * 3 + 2] = s * Math.sin(a) * 2200; }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+    this.nightStars = new THREE.Points(g, new THREE.PointsMaterial({ size: 1.5, sizeAttenuation: false, color: 0xdde3f5, transparent: true, opacity: 0, fog: false, depthWrite: false }));
+    this.scene.add(this.nightStars);
+    // 巨月
+    const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d');
+    const gr = x.createRadialGradient(110, 100, 10, 128, 128, 120); gr.addColorStop(0, '#f2f0ea'); gr.addColorStop(0.75, '#bdbab2'); gr.addColorStop(1, '#8d8a84');
+    x.fillStyle = gr; x.beginPath(); x.arc(128, 128, 120, 0, 7); x.fill();
+    const r2 = mulberry32(9); x.globalAlpha = 0.18; for (let i = 0; i < 40; i++) { x.fillStyle = r2() < 0.5 ? '#6e6b66' : '#ffffff'; x.beginPath(); const a = r2() * 6.28, d = r2() * 100; x.arc(128 + Math.cos(a) * d, 128 + Math.sin(a) * d, 4 + r2() * 18, 0, 7); x.fill(); }
+    this.moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), fog: false, transparent: true, depthWrite: false }));
+    this.moon.scale.setScalar(150); this.scene.add(this.moon);
+  }
+
+  // ---------- 地形 ----------
+  heightAt(x, z) {
+    const o = this.tSeed, r = Math.hypot(x, z);
+    const n = fbm3(x * 0.005 + o, 0.3, z * 0.005, 5);
+    let h = smooth(140, 420, r) * (0.25 + n) * 95;
+    h += smooth(95, 220, r) * (fbm3(x * 0.02, 1.7 + o, z * 0.02, 3) - 0.45) * 14;
+    const dd = (x * this.seaDir[0] + z * this.seaDir[1]) / (r + 1e-6);
+    h -= smooth(0.45, 0.85, dd) * smooth(150, 300, r) * 60;
+    h += (fbm3(x * 0.05, 3.3, z * 0.05 + o, 2) - 0.5) * 0.5 * smooth(40, 120, r);
+    return h;
+  }
+  buildTerrain(seed) {
+    this.tSeed = (seed % 97) * 1.37; const a = (seed % 360) * 0.0174;
+    this.seaDir = [Math.cos(a), Math.sin(a)];
+    const S = 2000, N = this.q > 1 ? 220 : 150;
+    const g = new THREE.PlaneGeometry(S, S, N, N); g.rotateX(-Math.PI / 2);
+    const pos = g.attributes.position, col = new Float32Array(pos.count * 3);
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), z = pos.getZ(i), h = this.heightAt(x, z); pos.setY(i, h);
+      const nv = fbm3(x * 0.018, 9, z * 0.018, 4), nv2 = fbm3(x * 0.09, 2, z * 0.09, 2);
+      let c = [0.15 + nv * 0.14 + nv2 * 0.05, 0.27 + nv * 0.12 + nv2 * 0.05, 0.11 + nv * 0.05];
+      if (h > 22) { const k = smooth(22, 45, h); c = c.map((v, j) => v * (1 - k) + [0.42, 0.41, 0.38][j] * k); }
+      if (h > 62) { const k = smooth(62, 85, h); c = c.map(v => v * (1 - k) + 0.9 * k); }
+      if (h < 0.6 && Math.hypot(x, z) > 140) { const k = smooth(0.6, -1.5, h); c = c.map((v, j) => v * (1 - k) + [0.72, 0.66, 0.48][j] * k); }
+      col[i * 3] = c[0]; col[i * 3 + 1] = c[1]; col[i * 3 + 2] = c[2];
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.computeVertexNormals();
+    if (this.terrain) { this.scene.remove(this.terrain); this.terrain.geometry.dispose(); }
+    this.terrain = new THREE.Mesh(g, weatherize(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 }), { burnK: '0.5' }));
+    this.terrain.receiveShadow = true; this.scene.add(this.terrain);
+    if (!this.water) {
+      this.waterMat = new THREE.MeshStandardMaterial({ color: 0x1b4a6e, roughness: 0.18, metalness: 0.2, transparent: true, opacity: 0.88 });
+      this.water = new THREE.Mesh(new THREE.PlaneGeometry(S, S), this.waterMat); this.water.rotation.x = -Math.PI / 2; this.water.position.y = -1.2;
+      this.scene.add(this.water);
+    }
+  }
+
+  // ---------- 實例化網格 ----------
+  buildMeshes() {
+    const lots = 2400;
+    const std = (c, o = {}) => { const { wx, ...rest } = o; return weatherize(new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.85 }, rest)), wx || {}); };
+    const im = (geo, mat, n, shadow = true) => { const m = new THREE.InstancedMesh(geo, mat, n); m.count = 0; m.castShadow = shadow; m.receiveShadow = true; m.frustumCulled = false; this.scene.add(m); return m; };
+    const hutGeo = new THREE.CylinderGeometry(0.5, 0.55, 1, 7); hutGeo.translate(0, 0.5, 0);
+    const hutRoofGeo = new THREE.ConeGeometry(0.72, 0.9, 7); hutRoofGeo.translate(0, 0.45, 0);
+    const boxGeo = new THREE.BoxGeometry(1, 1, 1); boxGeo.translate(0, 0.5, 0);
+    const roofGeo = new THREE.ConeGeometry(0.72, 0.55, 4); roofGeo.rotateY(Math.PI / 4); roofGeo.translate(0, 0.275, 0);
+    const chimGeo = new THREE.CylinderGeometry(0.35, 0.5, 1, 8); chimGeo.translate(0, 0.5, 0);
+    this.m = {
+      hut: im(hutGeo, std(0xffffff), lots), hutRoof: im(hutRoofGeo, std(0xffffff, { wx: { snowK: '1.0' } }), lots),
+      house: im(boxGeo, std(0xffffff), lots), roof: im(roofGeo, std(0xffffff), lots),
+      tower: im(boxGeo, std(0xffffff, { roughness: 0.5, metalness: 0.15, wx: { windows: true, burnK: '0.9' } }), lots),
+      factory: im(boxGeo, std(0xffffff), 300), chimney: im(chimGeo, std(0x6b5146), 300),
+      road: im(boxGeo, std(0xffffff, { roughness: 1 }), 700, false),
+      farm: im(boxGeo, std(0xffffff, { roughness: 1 }), 1400, false),
+      tree: im(new THREE.ConeGeometry(1, 3.2, 6).translate(0, 1.6, 0), std(0xffffff, { wx: { burnK: '1.0' } }), this.q > 1 ? 2600 : 1400),
+      wall: im(boxGeo, std(0xb8a888), 120),
+      person: im(new THREE.BoxGeometry(0.42, 1.1, 0.42).translate(0, 0.55, 0), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 }), 420, false),
+      car: im(new THREE.BoxGeometry(1.0, 0.75, 2.0).translate(0, 0.38, 0), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, metalness: 0.3 }), 420, false),
+      smoke: im(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshLambertMaterial({ color: 0x8a8a8a, transparent: true, opacity: 0.32, depthWrite: false }), 220, false)
+    };
+    this.m.road.receiveShadow = true;
+    const lampG = new THREE.BufferGeometry(); lampG.setAttribute('position', new THREE.BufferAttribute(new Float32Array(900 * 3), 3));
+    this.lamps = new THREE.Points(lampG, new THREE.PointsMaterial({ size: 5, color: 0xffcc66, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, map: glowTexture([[0, 'rgba(255,255,255,1)'], [0.3, 'rgba(255,255,255,0.4)'], [1, 'rgba(255,255,255,0)']]) }));
+    this.lamps.frustumCulled = false; this.scene.add(this.lamps);
+    this.dummy = new THREE.Object3D(); this.col = new THREE.Color();
+  }
+
+  // ---------- 紀念建築：巨擺、中央地標、發射場 ----------
+  buildMonuments() {
+    const stone = weatherize(new THREE.MeshStandardMaterial({ color: 0x9a8f7e, roughness: 0.9 }), { burnK: '0.7' });
+    const bronze = new THREE.MeshStandardMaterial({ color: 0x3b3a3f, roughness: 0.3, metalness: 0.8 });
+    const mk = (geo, mat, x, y, z, parent) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; parent.add(m); return m; };
+    // 巨擺
+    const P = this.pend = new THREE.Group(); P.position.set(PEND.x, 0, PEND.z);
+    mk(new THREE.BoxGeometry(30, 0.8, 12), stone, 0, 0.4, 0, P);
+    mk(new THREE.BoxGeometry(2.6, 48, 2.6), stone, -11, 24, 0, P); mk(new THREE.BoxGeometry(2.6, 48, 2.6), stone, 11, 24, 0, P);
+    mk(new THREE.BoxGeometry(26, 2.6, 3.2), stone, 0, 48, 0, P);
+    this.pivot = new THREE.Group(); this.pivot.position.set(0, 46.5, 0); P.add(this.pivot);
+    mk(new THREE.CylinderGeometry(0.15, 0.15, 38, 6), bronze, 0, -19, 0, this.pivot);
+    this.ball = mk(new THREE.SphereGeometry(3.4, 32, 20), bronze, 0, -39.5, 0, this.pivot);
+    this.scene.add(P);
+    // 中央地標
+    const C = this.center = new THREE.Group(); this.scene.add(C);
+    mk(new THREE.BoxGeometry(PITCH - ROAD, 0.4, PITCH - ROAD), stone, 0, 0.2, 0, C);
+    this.pyramid = new THREE.Group(); C.add(this.pyramid);
+    [10, 8, 6, 4].forEach((s, i) => mk(new THREE.BoxGeometry(s, 2, s), stone, 0, 1 + i * 2, 0, this.pyramid));
+    mk(new THREE.BoxGeometry(2.4, 3, 2.4), stone, 0, 9.5, 0, this.pyramid);
+    this.clock = new THREE.Group(); C.add(this.clock);
+    mk(new THREE.BoxGeometry(4.2, 26, 4.2), new THREE.MeshStandardMaterial({ color: 0x8c5a43, roughness: 0.9 }), 0, 13, 0, this.clock);
+    mk(new THREE.ConeGeometry(3.4, 6, 4).rotateY(Math.PI / 4), new THREE.MeshStandardMaterial({ color: 0x2d3a3a, roughness: 0.6 }), 0, 29, 0, this.clock);
+    this.clockFace = new THREE.MeshStandardMaterial({ color: 0xf4ead0, emissive: 0xffcc44, emissiveIntensity: 0 });
+    [0, 1, 2, 3].forEach(k => { const f = mk(new THREE.CircleGeometry(1.4, 24), this.clockFace, Math.sin(k * Math.PI / 2) * 2.12, 22, Math.cos(k * Math.PI / 2) * 2.12, this.clock); f.rotation.y = k * Math.PI / 2; });
+    this.tvTower = new THREE.Group(); C.add(this.tvTower);
+    const conc = new THREE.MeshStandardMaterial({ color: 0xc9ccd2, roughness: 0.6 });
+    mk(new THREE.CylinderGeometry(1.1, 2.2, 74, 16), conc, 0, 37, 0, this.tvTower);
+    mk(new THREE.SphereGeometry(5, 24, 16), new THREE.MeshStandardMaterial({ color: 0xd04040, roughness: 0.4, metalness: 0.3 }), 0, 56, 0, this.tvTower);
+    mk(new THREE.CylinderGeometry(0.2, 0.4, 22, 6), conc, 0, 85, 0, this.tvTower);
+    this.supertall = new THREE.Group(); C.add(this.supertall);
+    const glass = weatherize(new THREE.MeshStandardMaterial({ color: 0x8a9bb2, roughness: 0.35, metalness: 0.1 }), { windows: true, burnK: '0.9' });
+    [[9.5, 70, 0], [7.5, 48, 70], [5.5, 34, 118], [3.6, 16, 152]].forEach(([s, h, y]) => mk(new THREE.BoxGeometry(s, h, s), glass, 0, y + h / 2, 0, this.supertall));
+    mk(new THREE.CylinderGeometry(0.15, 0.6, 26, 6), conc, 0, 181, 0, this.supertall);
+    this.beacon = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture([[0, 'rgba(255,90,90,1)'], [0.3, 'rgba(255,60,60,0.5)'], [1, 'rgba(255,0,0,0)']]), blending: THREE.AdditiveBlending, depthWrite: false }));
+    this.beacon.position.set(0, 194, 0); this.beacon.scale.setScalar(8); this.supertall.add(this.beacon);
+    // 發射場
+    const L = this.launch = new THREE.Group(); L.position.set(PAD.x, 0, PAD.z); this.scene.add(L);
+    mk(new THREE.CylinderGeometry(14, 15, 1.2, 32), conc, 0, 0.6, 0, L);
+    mk(new THREE.BoxGeometry(3, 46, 3), new THREE.MeshStandardMaterial({ color: 0xc23b2b, roughness: 0.7 }), -7, 23, 0, L);
+    const R = this.rocket = new THREE.Group(); L.add(R);
+    const white = new THREE.MeshStandardMaterial({ color: 0xeef1f5, roughness: 0.35, metalness: 0.2 });
+    mk(new THREE.CylinderGeometry(2.4, 2.4, 34, 24), white, 0, 18, 0, R);
+    mk(new THREE.ConeGeometry(2.4, 7, 24), white, 0, 38.5, 0, R);
+    mk(new THREE.CylinderGeometry(2.45, 2.45, 2.4, 24), new THREE.MeshStandardMaterial({ color: 0xffcc44, roughness: 0.3, metalness: 0.6 }), 0, 30, 0, R);
+    [0, 1, 2, 3].forEach(k => { const f = mk(new THREE.BoxGeometry(0.4, 6, 3.6), white, Math.sin(k * 1.5708) * 2.8, 4, Math.cos(k * 1.5708) * 2.8, R); f.rotation.y = k * 1.5708; });
+    this.flame = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture([[0, 'rgba(255,255,230,1)'], [0.25, 'rgba(255,200,90,0.9)'], [0.6, 'rgba(255,110,40,0.35)'], [1, 'rgba(255,60,0,0)']]), blending: THREE.AdditiveBlending, depthWrite: false }));
+    this.flame.position.set(0, -4, 0); this.flame.scale.set(9, 20, 1); this.flame.visible = false; R.add(this.flame);
+    this.launchT = -1;
+  }
+
+  // ---------- 城市佈局（每個文明一份） ----------
+  setLayout(seed) {
+    if (seed === this.layoutSeed) return; this.layoutSeed = seed;
+    const rng = mulberry32(seed), lots = [], ang0 = rng() * 6.28;
+    const skip = (bx, bz) => (bx === 0 && bz === 0) || (bx === -2 && bz === 1) || (bx === -1 && bz === 1) || (Math.abs(bx - 6) <= 1 && Math.abs(bz + 6) <= 1);
+    const B = PITCH - ROAD;
+    for (let bx = -NB; bx <= NB; bx++) for (let bz = -NB; bz <= NB; bz++) {
+      if (skip(bx, bz)) continue;
+      const k = rng() < 0.35 ? 2 : 3, s = B / k;
+      for (let i = 0; i < k; i++) for (let j = 0; j < k; j++) {
+        const x = bx * PITCH - B / 2 + s * (i + 0.5), z = bz * PITCH - B / 2 + s * (j + 0.5);
+        const ang = Math.atan2(z, x);
+        const wob = 0.82 + 0.36 * vnoise3(Math.cos(ang + ang0) * 1.8 + 5, Math.sin(ang + ang0) * 1.8, seed % 13);
+        lots.push({ x, z, s: s - 0.7, d: Math.hypot(x, z) / RC / wob, r1: rng(), r2: rng(), r3: rng(), r4: rng(), r5: rng() });
+      }
+    }
+    this.lots = lots;
+    // 道路段
+    const roads = [];
+    for (let i = -NB; i <= NB + 1; i++) for (let j = -NB; j <= NB; j++) {
+      const c = (i - 0.5) * PITCH, m = j * PITCH;
+      roads.push({ x: c, z: m, ax: 1, d: Math.hypot(c, m) / RC }); roads.push({ x: m, z: c, ax: 0, d: Math.hypot(c, m) / RC });
+    }
+    this.roads = roads;
+    // 農田
+    const farms = [];
+    for (let x = -330; x <= 330; x += 9.5) for (let z = -330; z <= 330; z += 9.5) {
+      const r = Math.hypot(x, z); if (r < 50 || r > 330) continue;
+      if (Math.abs(this.heightAt(x, z)) > 2.2) continue;
+      farms.push({ x: x + (rng() - 0.5) * 1.2, z: z + (rng() - 0.5) * 1.2, d: r / RC, r1: rng(), r2: rng() });
+    }
+    this.farms = farms;
+    // 樹
+    const trees = [], nT = this.m.tree.instanceMatrix.count;
+    let tries = 0;
+    while (trees.length < nT && tries++ < nT * 6) {
+      const r = 30 + Math.pow(rng(), 0.7) * 520, a = rng() * 6.2832, x = Math.cos(a) * r, z = Math.sin(a) * r, h = this.heightAt(x, z);
+      if (h < 0.2 || h > 48) continue;
+      if (fbm3(x * 0.012, 4.4, z * 0.012, 3) < 0.42 && r > 120) continue;
+      trees.push({ x, z, y: h, d: r / RC, s: 0.8 + rng() * 1.1, r1: rng() });
+    }
+    this.trees = trees;
+    this.stateKey = '';
+    this.agentsInit(rng);
+  }
+
+  agentsInit(rng) {
+    const mk = (n, speed) => Array.from({ length: n }, () => ({ ax: rng() < 0.5 ? 0 : 1, line: Math.floor(rng() * (2 * NB + 2)) - NB, pos: (rng() - 0.5) * 2 * RC, dir: rng() < 0.5 ? -1 : 1, sp: speed * (0.6 + rng() * 0.8), c: rng() }));
+    this.people = mk(this.m.person.instanceMatrix.count, 1.6);
+    this.cars = mk(this.m.car.instanceMatrix.count, 9);
+    this.smokes = Array.from({ length: this.m.smoke.instanceMatrix.count }, (_, i) => ({ e: i, t: rng() * 6 }));
+  }
+
+  // ---------- 依文明狀態更新建築 ----------
+  refresh(st) {
+    // st: {age, frac, alive, dehyd, ruins, burned}
+    const age = st.age, reach = REACH[age] + (REACH[Math.min(8, age + 1)] - REACH[age]) * (age < 8 ? st.frac : 0);
+    const key = [age, Math.round(reach * 60), st.alive, st.ruins, st.burned, this.layoutSeed].join('|');
+    if (key === this.stateKey) return; this.stateKey = key;
+    this.reach = reach; this.age = age; this.ruinsMode = st.ruins;
+    const D = this.dummy, C = this.col, M = this.m, ruin = st.ruins;
+    const cnt = { hut: 0, hutRoof: 0, house: 0, roof: 0, tower: 0, factory: 0, chimney: 0 };
+    const put = (name, x, y, z, sx, sy, sz, color, ry = 0, tilt = 0) => {
+      D.position.set(x, y, z); D.rotation.set(tilt, ry, tilt * 0.6); D.scale.set(sx, sy, sz); D.updateMatrix();
+      const m = M[name], i = cnt[name]++; m.setMatrixAt(i, D.matrix); m.setColorAt(i, color);
+    };
+    const wallCol = [[0.62, 0.5, 0.36], [0.78, 0.7, 0.55], [0.85, 0.8, 0.7], [0.8, 0.76, 0.7], [0.62, 0.38, 0.3], [0.72, 0.72, 0.7], [0.78, 0.78, 0.78], [0.55, 0.63, 0.72], [0.7, 0.76, 0.84]];
+    const roofCol = [[0.55, 0.45, 0.25], [0.62, 0.5, 0.26], [0.62, 0.3, 0.2], [0.55, 0.26, 0.2], [0.3, 0.3, 0.33], [0.28, 0.3, 0.34], [0.35, 0.36, 0.38], [0.3, 0.32, 0.36], [0.3, 0.32, 0.36]];
+    this.emitters = [];
+    for (const L of this.lots) {
+      const visible = L.d < reach && L.r1 < OCC[age];
+      if (!visible) continue;
+      const k = 1 - L.d / reach;
+      let h = 1 + (HMAX[age] - 1) * Math.pow(k, 2.1) * (0.25 + 0.75 * L.r2 * L.r2);
+      if (age >= 6 && L.r3 < 0.05 && k > 0.3) h *= 1.9;
+      const fp = L.s * FOOT[age] * (0.85 + L.r4 * 0.15);
+      const wc = wallCol[age], j = (L.r5 - 0.5) * 0.12;
+      const tilt = ruin ? (L.r3 - 0.5) * 0.25 : 0, hm = ruin ? 0.25 + L.r4 * 0.25 : 1;
+      if (ruin) C.setRGB(0.24 + j, 0.23 + j, 0.22 + j);
+      else if (age >= 5) { const tp = TOWER_PAL[Math.floor(L.r5 * TOWER_PAL.length)]; C.setRGB(tp[0] + j * 0.5, tp[1] + j * 0.5, tp[2] + j * 0.5); }
+      else C.setRGB(wc[0] + j, wc[1] + j, wc[2] + j);
+      if (age === 0) {
+        const hs = 1.4 + L.r2 * 0.6, r = fp * 0.5;
+        put('hut', L.x, 0, L.z, r * 1.6, hs * hm, r * 1.6, C, L.r3 * 6);
+        if (!ruin) { C.setRGB(roofCol[0][0], roofCol[0][1], roofCol[0][2]); put('hutRoof', L.x, hs, L.z, r * 1.7, 1.4, r * 1.7, C, L.r3 * 6); }
+      } else if (age >= 4 && age <= 6 && L.r4 < 0.045 && L.d > reach * 0.5) {
+        // 工廠＋煙囪
+        put('factory', L.x, 0, L.z, fp, 3.4 * hm, fp * 0.8, ruin ? C : C.setRGB(0.48, 0.36, 0.3));
+        if (!ruin) { put('chimney', L.x + fp * 0.3, 3.4, L.z, 1.4, 9 + L.r2 * 5, 1.4, C.setRGB(0.42, 0.3, 0.26)); this.emitters.push([L.x + fp * 0.3, 3.4 + 9 + L.r2 * 5, L.z]); }
+      } else if (h < 4.2) {
+        const fl = Math.max(1.6, h * 2.2), w = fp * (0.75 + L.r2 * 0.25);
+        put('house', L.x, 0, L.z, w, fl * hm, fp * 0.8, C, (L.r3 > 0.5 ? 0 : Math.PI / 2));
+        if (!ruin) { const rc = roofCol[age]; C.setRGB(rc[0] + j, rc[1] + j * 0.5, rc[2]); put('roof', L.x, fl, L.z, w * 1.12, Math.min(2.4, w * 0.55), fp * 0.92, C, (L.r3 > 0.5 ? 0 : Math.PI / 2)); }
+      } else {
+        const fl = h * 1.9 + 2;
+        put('tower', L.x, 0, L.z, fp, fl * hm, fp * (0.75 + L.r3 * 0.25), C, 0, tilt);
+      }
+    }
+    for (const n in cnt) { const m = M[n]; m.count = cnt[n]; m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; }
+    // 道路
+    let rc = 0; const rcol = age < 4 ? [0.46, 0.38, 0.28] : age < 5 ? [0.35, 0.33, 0.3] : [0.16, 0.17, 0.19];
+    const lampPos = this.lamps.geometry.attributes.position.array; let lp = 0;
+    for (const R of this.roads) {
+      if (R.d > reach + 0.05 || (age === 0 && R.d > reach * 0.6)) continue;
+      D.position.set(R.x, 0.04, R.z); D.rotation.set(0, 0, 0);
+      if (R.ax) D.scale.set(ROAD, 0.1, PITCH); else D.scale.set(PITCH, 0.1, ROAD);
+      D.updateMatrix(); M.road.setMatrixAt(rc, D.matrix); C.setRGB(rcol[0], rcol[1], rcol[2]); if (ruin) C.multiplyScalar(0.7); M.road.setColorAt(rc++, C);
+      if (age >= 4 && lp < 900 && R.ax) { lampPos[lp * 3] = R.x + 1.6; lampPos[lp * 3 + 1] = 3.2; lampPos[lp * 3 + 2] = R.z; lp++; }
+    }
+    M.road.count = rc; M.road.instanceMatrix.needsUpdate = true; if (M.road.instanceColor) M.road.instanceColor.needsUpdate = true;
+    this.lamps.geometry.setDrawRange(0, ruin ? 0 : lp); this.lamps.geometry.attributes.position.needsUpdate = true;
+    // 農田
+    let fc = 0; const crops = [[0.78, 0.68, 0.3], [0.45, 0.6, 0.25], [0.6, 0.48, 0.28], [0.36, 0.52, 0.22], [0.82, 0.74, 0.42]];
+    if (age >= 1 && age <= 6 && !ruin) for (const F of this.farms) {
+      if (F.d < reach + 0.03 || F.d > reach + 0.35 + age * 0.05 || F.r2 > 0.85) continue;
+      D.position.set(F.x, this.heightAt(F.x, F.z) + 0.08, F.z); D.rotation.set(0, 0, 0); D.scale.set(8.2, 0.12, 8.2); D.updateMatrix();
+      M.farm.setMatrixAt(fc, D.matrix); const cc = crops[Math.floor(F.r1 * crops.length)]; C.setRGB(cc[0], cc[1], cc[2]); M.farm.setColorAt(fc++, C);
+      if (fc >= 1400) break;
+    }
+    M.farm.count = fc; M.farm.instanceMatrix.needsUpdate = true; if (M.farm.instanceColor) M.farm.instanceColor.needsUpdate = true;
+    // 樹
+    let tc = 0;
+    for (const T of this.trees) {
+      if (T.d < reach + 0.04 && !(age <= 1 && T.r1 < 0.25)) continue;
+      D.position.set(T.x, T.y, T.z); D.rotation.set(0, T.r1 * 6, 0); D.scale.set(T.s, T.s * (0.9 + T.r1 * 0.5), T.s); D.updateMatrix();
+      M.tree.setMatrixAt(tc, D.matrix); C.setRGB(0.12 + T.r1 * 0.1, 0.3 + T.r1 * 0.14, 0.14); M.tree.setColorAt(tc++, C);
+    }
+    M.tree.count = tc; M.tree.instanceMatrix.needsUpdate = true; if (M.tree.instanceColor) M.tree.instanceColor.needsUpdate = true;
+    // 城牆
+    let wc2 = 0;
+    if (age >= 2 && age <= 4) {
+      const Rw = reach * RC * 0.95 + 6, n = 96;
+      for (let i = 0; i < n; i++) {
+        if (i % 24 === 0) continue;
+        const a = i / n * 6.2832, x = Math.cos(a) * Rw, z = Math.sin(a) * Rw;
+        D.position.set(x, 0, z); D.rotation.set(0, -a, 0); D.scale.set(1.6, ruin ? 1.6 : 5, Rw * 6.2832 / n + 0.3); D.updateMatrix(); M.wall.setMatrixAt(wc2++, D.matrix);
+      }
+    }
+    M.wall.count = wc2; M.wall.instanceMatrix.needsUpdate = true;
+    // 地標
+    this.pend.visible = age >= 1;
+    this.pyramid.visible = age >= 1 && age <= 3; this.clock.visible = age >= 4 && age <= 5;
+    this.tvTower.visible = age === 6; this.supertall.visible = age >= 7; this.launch.visible = age >= 8;
+    [this.pyramid, this.clock, this.tvTower, this.supertall].forEach(g => { g.scale.y = ruin ? 0.35 : 1; g.rotation.z = ruin ? 0.08 : 0; });
+    this.pivot.rotation.z = 0;
+  }
+
+  launchRocket() { if (this.launch.visible) { this.launchT = 0; this.flame.visible = true; } }
+
+  // env: {suns:[{dir:Vector3, col:[r,g,b], vis, size}], T, day, lights, alive, dehyd}
+  update(dt, cam, env) {
+    this.time += dt;
+    const M = this.m, D = this.dummy;
+    // 天空與光照
+    const U = this.skyU; let day = 0, best = -1, bi = 0;
+    env.suns.forEach((s, i) => {
+      U.uSunDir.value[i].copy(s.dir); U.uSunCol.value[i].setRGB(s.col[0], s.col[1], s.col[2]);
+      U.uSunVis.value[i] = s.vis; U.uSunSize.value[i] = s.size;
+      const e = smooth(-0.1, 0.25, s.dir.y) * s.vis; day += e;
+      if (e > best) { best = e; bi = i; }
+    });
+    day = Math.min(1, day * 1.15);
+    this.day = day;
+    const snow = Math.max(0, Math.min(1, (-4 - env.T) / 28)), heat = Math.max(0, Math.min(1, (env.T - 42) / 70));
+    U.uDay.value = day; U.uHeat.value = heat; U.uSnow.value = snow;
+    WX.uSnow.value = snow; WX.uHeat.value = heat; WX.uNight.value = Math.max(0, 1 - day * 1.6);
+    WX.uWin.value = env.alive && !env.dehyd ? [0.05, 0.08, 0.1, 0.14, 0.25, 0.4, 0.45, 0.5, 0.52][this.age] : 0;
+    WX.uWinCol.value.setRGB(1, this.age >= 6 ? 0.88 : 0.72, this.age >= 6 ? 0.66 : 0.4);
+    WX.uBurn.value = this.ruinsMode && env.burned ? 1 : 0;
+    const sb = env.suns[bi];
+    this.sun.position.copy(sb.dir).multiplyScalar(700); this.sun.target.position.set(0, 0, 0);
+    this.sun.color.setRGB(sb.col[0], sb.col[1], sb.col[2]);
+    this.sun.intensity = Math.min(1.8, sb.vis * 1.15) * smooth(-0.05, 0.12, sb.dir.y);
+    let fi = 0;
+    env.suns.forEach((s, i) => { if (i === bi) return; const l = this.fill[fi++]; l.position.copy(s.dir).multiplyScalar(700); l.color.setRGB(s.col[0], s.col[1], s.col[2]); l.intensity = Math.min(1.8, s.vis * 1.2) * smooth(-0.05, 0.12, s.dir.y); });
+    this.hemi.intensity = 0.1 + day * 0.4; this.hemi.color.setRGB(0.55 + day * 0.2, 0.65 + day * 0.15, 0.85 + day * 0.1);
+    this.hemi.color.lerp(new THREE.Color(1, 0.55, 0.3), heat * 0.5);
+    const fogC = new THREE.Color(0.03, 0.04, 0.08).lerp(new THREE.Color(0.62, 0.72, 0.85), day).lerp(new THREE.Color(0.75, 0.42, 0.22), heat * 0.6);
+    this.scene.fog.color.copy(fogC); this.scene.fog.near = 260 - heat * 180; this.scene.fog.far = 1900 - heat * 1100 - snow * 300;
+    this.nightStars.material.opacity = Math.pow(1 - day, 2.5) * (1 - heat * 0.7);
+    // 巨月
+    const ma = this.time * 0.01 + 1.2; const md = new THREE.Vector3(Math.cos(ma) * 0.8, 0.32 + 0.15 * Math.sin(ma * 0.7), Math.sin(ma) * 0.8).normalize();
+    this.moon.position.copy(md).multiplyScalar(2000); this.moon.material.opacity = 0.35 + (1 - day) * 0.65;
+    // 水面
+    this.water.position.y = -1.2 - heat * 9;
+    this.waterMat.color.setRGB(0.1, 0.29, 0.43).lerp(new THREE.Color(0.84, 0.9, 0.95), snow).lerp(new THREE.Color(0.35, 0.25, 0.18), heat * 0.8);
+    this.waterMat.roughness = 0.18 + snow * 0.6;
+    // 城市燈光
+    this.lamps.material.opacity = (env.alive && !env.dehyd && this.age >= 4) ? WX.uNight.value : 0;
+    this.clockFace.emissiveIntensity = WX.uNight.value * (env.alive ? 0.9 : 0);
+    this.beacon.material.opacity = (Math.sin(this.time * 3) > 0 ? 1 : 0.15) * (env.alive ? 1 : 0);
+    // 巨擺（真實單擺週期 T = 2π√(L/g)）
+    if (this.pend.visible) {
+      const Tp = 2 * Math.PI * Math.sqrt(40 / 9.8);
+      this.pivot.rotation.z = this.ruinsMode ? 0 : 0.55 * Math.sin(this.time * 2 * Math.PI / Tp);
+    }
+    // 行人與車輛
+    const active = env.alive && !env.dehyd && !this.ruinsMode;
+    const ext = this.reach * RC * 0.95;
+    this.moveAgents(this.people, M.person, dt, active ? Math.floor(this.people.length * Math.min(1, 0.25 + this.age * 0.12)) : 0, ext, 0.35, [[0.85, 0.3, 0.3], [0.3, 0.5, 0.85], [0.9, 0.8, 0.3], [0.9, 0.9, 0.9], [0.4, 0.7, 0.4]]);
+    this.moveAgents(this.cars, M.car, dt, active && this.age >= 5 ? Math.floor(this.cars.length * Math.min(1, 0.35 + (this.age - 5) * 0.25)) : 0, ext, 0.7, [[0.8, 0.15, 0.15], [0.15, 0.3, 0.75], [0.9, 0.9, 0.92], [0.12, 0.12, 0.14], [0.95, 0.75, 0.2], [0.4, 0.42, 0.45]]);
+    // 煙
+    let si = 0;
+    if (active && this.emitters && this.emitters.length) {
+      for (const p of this.smokes) {
+        p.t += dt; if (p.t > 6) { p.t = 0; p.e = Math.floor(Math.random() * this.emitters.length); }
+        const e = this.emitters[p.e % this.emitters.length], k = p.t;
+        D.position.set(e[0] + k * 1.6, e[1] + k * 2.6, e[2] + k * 0.6); D.rotation.set(k, k * 0.7, 0); D.scale.setScalar(0.7 + k * 0.75); D.updateMatrix();
+        M.smoke.setMatrixAt(si++, D.matrix);
+      }
+    }
+    M.smoke.count = si; M.smoke.instanceMatrix.needsUpdate = true;
+    // 火箭發射
+    if (this.launchT >= 0) {
+      this.launchT += dt; const t = this.launchT;
+      this.rocket.position.y = Math.max(0, t - 1.5) ** 2 * 5;
+      this.flame.scale.set(9 + Math.random() * 2, 20 + Math.random() * 6, 1);
+      if (t > 14) { this.launchT = -1; this.flame.visible = false; this.rocket.position.y = 0; }
+    }
+    // 攝影機
+    this.target.lerp(this.targetGoal, 1 - Math.exp(-dt * 3));
+    if (this.skyMode) {
+      // 站在城市邊緣的山坡上仰望：拖曳可環顧
+      const R = Math.max(90, (this.reach || 0.3) * RC + 70), a0 = this.skyAz0 || 0;
+      const px = -Math.sin(a0) * R, pz = -Math.cos(a0) * R, py = Math.max(0, this.heightAt(px, pz)) + 7;
+      cam.theta += (cam.tTheta - cam.theta) * (1 - Math.exp(-dt * 7)); cam.phi += (cam.tPhi - cam.phi) * (1 - Math.exp(-dt * 7));
+      const pitch = (1.6 - cam.phi) / 1.48 * 1.15 + 0.06, yaw = cam.theta;
+      this.camera.position.set(px, py, pz);
+      this.camera.lookAt(px + Math.sin(yaw) * Math.cos(pitch), py + Math.sin(pitch), pz + Math.cos(yaw) * Math.cos(pitch));
+    } else cam.update(dt, this.camera, this.target);
+    this.camera.near = 0.5; this.camera.far = 5000; this.camera.updateProjectionMatrix();
+    this.sky.position.copy(this.camera.position); this.nightStars.position.copy(this.camera.position); this.moon.position.add(this.camera.position);
+  }
+
+  moveAgents(list, mesh, dt, n, ext, lane, palette) {
+    const D = this.dummy, C = this.col; let c = 0;
+    for (let i = 0; i < n; i++) {
+      const a = list[i];
+      a.pos += a.dir * a.sp * dt;
+      if (Math.abs(a.pos) > ext) { a.dir = -Math.sign(a.pos); a.pos = Math.sign(a.pos) * ext; }
+      const lineC = (a.line - 0.5) * PITCH;
+      if (Math.abs(lineC) > ext) { a.line = Math.round((Math.random() - 0.5) * 2 * ext / PITCH); }
+      // 路口轉彎
+      const g = a.pos / PITCH + 0.5, near = Math.round(g);
+      if (Math.abs(g - near) < 0.02 && Math.random() < 0.02) { const nl = near; a.pos = (a.line - 0.5) * PITCH; a.line = nl; a.ax = 1 - a.ax; a.pos += a.dir * 0.4; }
+      const off = (a.ax ? 1 : -1) * a.dir * lane;
+      let x, z, ry;
+      if (a.ax === 0) { x = a.pos; z = (a.line - 0.5) * PITCH + off; ry = a.dir > 0 ? Math.PI / 2 : -Math.PI / 2; }
+      else { z = a.pos; x = (a.line - 0.5) * PITCH + off; ry = a.dir > 0 ? 0 : Math.PI; }
+      D.position.set(x, 0.1, z); D.rotation.set(0, ry, 0); D.scale.setScalar(1); D.updateMatrix();
+      mesh.setMatrixAt(c, D.matrix);
+      const p = palette[Math.floor(a.c * palette.length)]; C.setRGB(p[0], p[1], p[2]); mesh.setColorAt(c, C); c++;
+    }
+    mesh.count = c; mesh.instanceMatrix.needsUpdate = true; if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  }
+}
+
+// ================= 主程式：狀態、迴圈、介面 =================
+(function () {
+  const $ = id => document.getElementById(id);
+  const isMobile = () => innerWidth <= 860;
+  const QUALITY = (Math.min(innerWidth, innerHeight) < 700 || (navigator.hardwareConcurrency || 8) <= 4) ? 1 : 2;
+
+  const CONCEPTS = {
+    era: { k: '紀元', t: '恆紀元與亂紀元', p: '行星穩定繞著一顆太陽轉時，距離幾乎不變，日照和溫度也就穩定，這是恆紀元。當另一顆恆星靠近，它的引力把行星的軌道拉歪，距離忽遠忽近，溫度大起大落，這是亂紀元。左上角的「擾動」就是其他恆星的拉力占主星引力的比例。', q: '地球為什麼沒有亂紀元？太陽系少了什麼？' },
+    stable: { k: '恆紀元', t: '穩定的圓軌道', p: '行星被一顆太陽「抓住」，沿著接近圓形的軌道運行，離心率接近 0。這時一年長度固定、季節規律，文明可以安心發展。', q: '如果軌道變得很扁（離心率變大），一年中的溫度會怎樣變化？' },
+    chaos: { k: '亂紀元', t: '引力擾動', p: '另一顆恆星經過時，它對行星和主星的拉力不一樣大，這個差就是「擾動」。擾動超過幾個百分比，軌道就開始變形，行星甚至會被另一顆恆星搶走。', q: '找找看：亂紀元開始前，太陽乙或太陽丙離行星多遠？' },
+    flux: { k: '日照', t: '距離平方反比', p: '日照強度和距離的平方成反比：距離變 2 倍，日照只剩 1/4。溫度大約跟日照的四次方根成正比，所以日照少一半，溫度只降大約 16%（以絕對溫度計算）。黃色三角形是平衡溫度，白線是目前溫度。', q: '白線為什麼總是慢一步才追上黃色三角形？（提示：海洋需要時間加熱）' },
+    thermal: { k: '熱慣性', t: '溫度會慢慢追上去', p: '海洋和大地吸熱、散熱都需要時間，所以太陽忽然變近時，溫度不會瞬間飆高。模擬中目前溫度會以指數方式追趕平衡溫度，這就是為什麼短暫的雙日凌空不一定致命。', q: '沙灘和海水，哪個在中午比較燙？為什麼？' },
+    hz: { k: '宜居帶', t: '液態水的距離', p: '每顆太陽周圍都有一圈綠色環帶，行星在這個範圍裡，表面溫度剛好能讓水保持液態。越亮的恆星，宜居帶離得越遠。', q: '三顆太陽的宜居帶重疊時，行星會更適合居住嗎？' },
+    fly: { k: '飛星', t: '太遠的太陽變成星星', p: '恆星離得很遠時，它在天空中看起來只是一個亮點，原著稱為「飛星」。視直徑大於 0.04° 我們就當作看得到日面的「太陽」，否則就是飛星。兩顆飛星表示行星只剩一顆太陽照耀，常是恆紀元的徵兆。', q: '地球上看得到其他恆星的日面嗎？為什麼？' },
+    sanri: { k: '天象', t: '三日凌空', p: '三顆太陽同時以日面出現在天空。日照疊加，溫度急速上升；如果溫度超過 140°C，地表文明會被焚毀。', q: '三顆太陽一起照，日照是一顆的幾倍？溫度也會變成三倍嗎？' },
+    lianzhu: { k: '天象', t: '三日連珠', p: '三顆太陽和行星排成一直線，它們的潮汐力（對行星近側、遠側拉力的差）會疊加。三顆都靠得夠近時，會引發巨大的地震與海嘯。', q: '地球上的大潮發生在太陽、月亮、地球排成一線時，這和三日連珠有什麼相似？' },
+    night: { k: '天象', t: '長夜', p: '行星離所有太陽都很遠，總日照不到地球的 5%，天空一片漆黑，溫度可能降到零下一百多度。', q: '如果沒有陽光，生物還能靠什麼能量活下去？' },
+    dehyd: { k: '原著設定', t: '脫水與浸泡', p: '在《三體》小說裡，三體人遇到亂紀元會把身體脫水成乾纖維保存起來，等恆紀元到來再泡水復活。模擬中溫度超出 -35～65°C 時文明就會脫水，發展暫停。', q: '地球上有沒有生物也會「脫水休眠」？（提示：水熊蟲）' },
+    sky: { k: '觀測', t: '全天圖怎麼看', p: '這張圖把整個天空攤平：橫軸是方向（經度），縱軸是高低（緯度）。恆紀元時，主太陽沿著一條規律的路徑繞圈；亂紀元時，三顆太陽的路徑互相交纏、毫無規律。', q: '在全天圖上，飛星的路徑和太陽有什麼不同？' },
+    chron: { k: '編年史', t: '一次又一次的輪迴', p: '每個文明從原始時代開始，走過農耕、蒸汽、電氣直到太空時代。發展到第 170 文明年，就能建造星艦飛出三體星系。大多數文明會先毀於烈日、嚴寒或潮汐。', q: '哪一種毀滅原因最常見？和這個星系的哪個特性有關？' },
+    chaosTheory: { k: '混沌', t: '差之毫釐，失之千里', p: '三體問題沒有通用的公式解，只能一步一步計算。更麻煩的是它是混沌系統：起始位置差十億分之一，誤差也會指數放大，幾十年後就完全不同。這就是三體人無法預測太陽的原因。', q: '天氣預報為什麼只能準確預報一週左右？' },
+    pendulum: { k: '原著場景', t: '巨擺', p: '小說的遊戲裡，伏羲時代的人建造巨擺，想催眠反覆無常的太陽神。真實的單擺週期只和擺長有關：T = 2π√(L/g)。這座擺長約 40 公尺，擺一個來回約 12.7 秒，和擺錘多重無關。', q: '如果把擺長變成 4 倍，週期會變成幾倍？' },
+    eight: { k: '特解', t: '八字形編舞', p: '2000 年數學家找到三顆等質量恆星沿同一條「8」字軌道追逐的週期解。它很漂亮，但也很脆弱，只要一點點擾動就會瓦解。', q: '為什麼現實宇宙中很難找到這種八字形三星？' }
+  };
+
+  // ---------- 狀態 ----------
+  const S = {
+    world: null, presetKey: 'chaos', seed: 1, playing: true, speed: 1.5, view: 'space',
+    teach: false, twin: null, twinDelta: 1e-6, twinStart: 0, div: [], divSplit: null,
+    snaps: [], snapEvery: 0.25, skyTr: [[], [], []], clock: 0.6, sunLocal: [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()],
+    perfMs: 0, costPerYr: 0.002, limited: false, uiT: 0, conceptT: 0, mtab: 'cEra', toastN: 0, lastEventSeen: 0
+  };
+  const sound = new Sound();
+
+  // ---------- 3D ----------
+  const canvas = $('gl');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, logarithmicDepthBuffer: true, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, QUALITY > 1 ? 2 : 1.5));
+  renderer.outputEncoding = THREE.LinearEncoding;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  const space = new SpaceView();
+  const city = new CityView(QUALITY);
+  const spaceCam = new OrbitCam(canvas), cityCam = new OrbitCam(canvas);
+  cityCam.enabled = false;
+  cityCam.minD = 16; cityCam.maxD = 700; cityCam.phiMin = 0.12; cityCam.phiMax = 1.53;
+  cityCam.theta = cityCam.tTheta = 0.7; cityCam.phi = cityCam.tPhi = 1.08; cityCam.setDist(300, true);
+
+  function resize() {
+    const w = innerWidth, h = innerHeight;
+    renderer.setSize(w, h, false);
+    space.camera.aspect = city.camera.aspect = w / h;
+    space.camera.updateProjectionMatrix(); city.camera.updateProjectionMatrix();
+    sizeCanvases();
+  }
+
+  // ---------- 世界生成 ----------
+  function newWorld(presetKey, seed) {
+    S.presetKey = presetKey; S.seed = seed;
+    const w = S.world = new World(presetKey, seed);
+    w.onEvent = onEvent; w.onStep = () => space.sampleTrails(w, S.twin);
+    S.snaps = [{ t: 0, s: w.snapshot() }]; S.twin = null; S.div = []; S.divSplit = null; updateTwinBtn();
+    space.clearTrails(); S.skyTr = [[], [], []]; space.genPlanetBase(seed * 31 + 7); space.climKey = ''; space.lightKey = '';
+    city.buildTerrain(seed); city.layoutSeed = -1;
+    $('toasts').innerHTML = '';
+    // 取景：看見整個星系
+    const s = w.sim; let far = 0; const c = s.com();
+    for (let i = 0; i < 3; i++) far = Math.max(far, Math.hypot(s.sp[i * 3] - c[0], s.sp[i * 3 + 1] - c[1]));
+    far = Math.max(far, w.info.distCOM);
+    space.focus = 'com'; space.focusPrev = null; space.focusBlend = 1;
+    const asp = innerWidth / innerHeight < 1 ? 1.9 : 1;
+    spaceCam.minD = 0.5; spaceCam.setDist((Math.min(far, 60) * AUS * 2.3 + 30) * asp, true);
+    spaceCam.setDist((Math.min(far, 60) * AUS * 1.9 + 20) * asp);
+    spaceCam.tPhi = 0.95; spaceCam.phi = 1.25;
+    if (S.view === 'city') exitCity(true);
+    renderFocusBar(); renderChron(); S.lastEventSeen = 0;
+    toast(`${PRESETS[presetKey].name}（種子 ${seed}）：${PRESETS[presetKey].desc}`, 'blue', 9000);
+  }
+
+  // ---------- 事件 ----------
+  function onEvent(e) {
+    sound.event(e);
+    if (e.key === 'eraStable' || e.key === 'eraChaos') sound.setEra(e.key === 'eraStable' ? 'stable' : 'chaos');
+    if (e.key === 'civWin' && S.view === 'city') city.launchRocket();
+    const important = ['eraStable', 'eraChaos', 'sanri', 'lianzhu', 'civStart', 'civEnd', 'civWin', 'age', 'dehyd', 'rehyd', 'reset', 'lost', 'night', 'threeFly'];
+    if (important.includes(e.key)) toast(`第 ${e.t.toFixed(1)} 年｜${e.text}`, e.color);
+    if (e.key === 'civEnd' || e.key === 'civWin') renderChron();
+  }
+  function toast(text, color = 'blue', ms = 6500) {
+    const box = $('toasts'), d = document.createElement('div');
+    d.className = 'toast ' + color; d.textContent = text; box.appendChild(d);
+    while (box.children.length > (isMobile() ? 2 : 3)) box.removeChild(box.firstChild);
+    setTimeout(() => { d.classList.add('out'); setTimeout(() => d.remove(), 520); }, ms);
+  }
+
+  // ---------- 時間控制 ----------
+  const speedFromSlider = v => 0.05 * Math.pow(400, v / 100);
+  const sliderFromSpeed = s => Math.log(s / 0.05) / Math.log(400) * 100;
+  function setSpeed(s) { S.speed = Math.max(0.05, Math.min(20, s)); $('speed').value = sliderFromSpeed(S.speed); updateSpeedLabel(); }
+  function fmtSpeed(s) { return s < 1 ? (s * 365).toFixed(0) + ' 天/秒' : s.toFixed(s < 10 ? 1 : 0) + ' 年/秒'; }
+  function updateSpeedLabel() {
+    const eff = effSpeed();
+    $('speedV').textContent = fmtSpeed(eff) + (eff < S.speed - 1e-6 ? '*' : '');
+    $('yrS').textContent = (S.playing ? '每秒 ' + fmtSpeed(eff).replace('/秒', '') : '已暫停') + (S.view === 'city' && S.speed > 1.5 ? ' · 城市限速' : S.limited ? ' · 運算限速' : '');
+  }
+  const effSpeed = () => S.view === 'city' ? Math.min(S.speed, 1.5) : S.speed;
+  function setPlaying(p) { S.playing = p; $('play').textContent = p ? '❚❚' : '▶'; $('play').setAttribute('aria-label', p ? '暫停' : '播放'); updateSpeedLabel(); }
+
+  function seekTo(t) {
+    let i = S.snaps.length - 1; while (i > 0 && S.snaps[i].t > t) i--;
+    const sn = S.snaps[i]; S.world.restore(sn.s); S.snaps.length = i + 1;
+    space.clearTrails(); S.skyTr = [[], [], []];
+    if (S.twin) { S.twin = null; updateTwinBtn(); $('divCap').textContent = '回到過去後，雙胞胎實驗已停止。'; }
+    sound.setEra(S.world.era);
+    toast(`回到第 ${sn.t.toFixed(1)} 年，從這一刻重新推演。電腦每一步的微小差異，可能讓未來走向不同結局。`, 'yellow', 7000);
+    renderChron();
+  }
+
+  // ---------- 視角切換 ----------
+  function fade(fn) { const f = $('fade'); f.classList.add('on'); setTimeout(() => { fn(); setTimeout(() => f.classList.remove('on'), 60); }, 360); }
+  function enterCity() {
+    if (S.view === 'city') return;
+    fade(() => {
+      S.view = 'city'; document.body.classList.add('city'); spaceCam.enabled = false; cityCam.enabled = true; city.skyMode = false;
+      renderer.shadowMap.enabled = QUALITY > 1;
+      syncCity(true);
+      const dd = Math.max(110, city.reach * RC * 2.4);
+      cityCam.theta = cityCam.tTheta = 0.7 + Math.random() * 0.5; cityCam.phi = 0.6; cityCam.tPhi = 1.22; cityCam.setDist(Math.min(690, dd * 2.2), true); cityCam.setDist(dd);
+      city.targetGoal.set(0, 0, 0); city.target.set(0, 0, 0); S.cityMode = 'c-top'; renderFocusBar(); updateSpeedLabel();
+    });
+  }
+  function exitCity(instant) {
+    const go = () => {
+      S.view = 'space'; document.body.classList.remove('city'); spaceCam.enabled = true; cityCam.enabled = false;
+      space.setFocus('planet'); space.focusBlend = 1; space.focusPrev = null;
+      spaceCam.minD = PLANET_R * 1.3; spaceCam.setDist(PLANET_R * 1.6, true); spaceCam.setDist(PLANET_R * 9);
+      renderer.shadowMap.enabled = false; renderFocusBar(); updateSpeedLabel();
+    };
+    instant ? go() : fade(go);
+  }
+  function focusSpace(key) {
+    if (S.view === 'city') exitCity();
+    space.setFocus(key);
+    const s = S.world.sim;
+    if (key === 'planet') {
+      spaceCam.minD = PLANET_R * 1.3; spaceCam.setDist(PLANET_R * 16);
+      const h = S.world.info.host * 3, dx = s.sp[h] - s.pp[0], dy = s.sp[h + 1] - s.pp[1];
+      spaceCam.tTheta = Math.atan2(dx, -dy) + 1.1; spaceCam.tPhi = 1.25;
+    }
+    else if (key === 'com') { spaceCam.minD = 0.5; let far = 0; const c = s.com(); for (let i = 0; i < 3; i++) far = Math.max(far, Math.hypot(s.sp[i * 3] - c[0], s.sp[i * 3 + 1] - c[1])); spaceCam.setDist((Math.min(far, 60) * AUS * 1.9 + 20) * (innerWidth / innerHeight < 1 ? 1.9 : 1)); }
+    else { const i = +key.slice(4); const r = s.stars[i].R * 0.00465 * AUS; spaceCam.minD = r * 1.6; spaceCam.setDist(Math.sqrt(s.stars[i].L) * AUS * 3.2); }
+    renderFocusBar();
+  }
+  function goCityFromSpace() {
+    if (S.view === 'city') return;
+    if (space.focus !== 'planet') { space.setFocus('planet'); spaceCam.minD = PLANET_R * 1.3; }
+    spaceCam.setDist(PLANET_R * 1.35); S.pendingCity = 1.4;
+  }
+  spaceCam.onZoomPastMin = () => { if (space.focus === 'planet' && S.view === 'space') enterCity(); };
+  cityCam.onZoomPastMax = () => { if (S.view === 'city') exitCity(); };
+
+  function renderFocusBar() {
+    const bar = $('viewbar'), s = S.world.sim;
+    const items = S.view === 'space'
+      ? [['com', '星系'], ['star0', '太陽甲', s.stars[0].color], ['star1', '太陽乙', s.stars[1].color], ['star2', '太陽丙', s.stars[2].color], ['planet', '行星'], ['hz', '宜居帶'], ['city', '近看城市 →']]
+      : [['c-top', '俯瞰城市'], ['c-pend', '巨擺'], ['c-sky', '仰望天空'], ['c-ring', '環繞'], ['space', '← 返回太空']];
+    bar.innerHTML = items.map(([k, n, c]) => {
+      const on = (S.view === 'space' && (k === space.focus || (k === 'hz' && space.showHZ))) || (S.view === 'city' && k === S.cityMode);
+      return `<button class="chip${on ? ' on' : ''}${k === 'city' || k === 'space' ? ' go' : ''}" data-k="${k}">${c ? `<i style="background:rgb(${c.map(v => Math.round(v * 255)).join(',')})"></i>` : ''}${n}</button>`;
+    }).join('');
+  }
+  $('viewbar').addEventListener('click', e => {
+    const b = e.target.closest('.chip'); if (!b) return; const k = b.dataset.k;
+    if (k === 'hz') { space.showHZ = !space.showHZ; renderFocusBar(); return; }
+    if (k === 'city') { goCityFromSpace(); return; }
+    if (k === 'space') { exitCity(); return; }
+    if (k.startsWith('c-')) { cityMode(k); return; }
+    focusSpace(k);
+  });
+  function cityMode(k) {
+    S.cityMode = k; cityCam.autoSpin = 0; city.skyMode = k === 'c-sky';
+    if (k === 'c-top') { city.targetGoal.set(0, 0, 0); cityCam.tPhi = 1.2; cityCam.setDist(Math.max(110, city.reach * RC * 2.4)); }
+    if (k === 'c-pend') { city.targetGoal.set(PEND.x, 26, PEND.z); cityCam.tPhi = 1.32; cityCam.setDist(95); cityCam.tTheta = 0.15; showConcept('pendulum'); }
+    if (k === 'c-sky') {
+      // 面向主太陽的方位，從城市另一側的山坡看過去
+      const sd = S.sunLocal[S.world.info.host]; const az = Math.atan2(sd.x, sd.z);
+      const el = Math.max(0.15, Math.min(1.1, Math.asin(Math.max(-1, Math.min(1, sd.y))) * 0.8));
+      city.skyAz0 = az; cityCam.tTheta = cityCam.theta = az; cityCam.tPhi = Math.max(0.12, 1.6 - (el - 0.06) / 1.15 * 1.48); cityCam.phi = 1.45;
+    }
+    if (k === 'c-ring') { city.targetGoal.set(0, 10, 0); cityCam.tPhi = 1.12; cityCam.setDist(230); cityCam.autoSpin = 0.12; }
+    renderFocusBar();
+  }
+
+  // ---------- 城市環境 ----------
+  const LAT = 0.42;
+  function localSuns(dt, raw) {
+    const info = S.world.info, h = info.host, uh = info.stars[h].u;
+    const lam = Math.atan2(uh[1], uh[0]) + S.clock; // 觀測者所在經度（慣性座標）
+    const cl = Math.cos(LAT), sl = Math.sin(LAT), cL = Math.cos(lam), sL = Math.sin(lam);
+    const up = [cl * cL, cl * sL, sl], east = [-sL, cL, 0], north = [-sl * cL, -sl * sL, cl];
+    const out = [];
+    for (let i = 0; i < 3; i++) {
+      const u = info.stars[i].u;
+      const v = new THREE.Vector3(u[0] * east[0] + u[1] * east[1] + u[2] * east[2], u[0] * up[0] + u[1] * up[1] + u[2] * up[2], -(u[0] * north[0] + u[1] * north[1] + u[2] * north[2]));
+      if (!raw) { if (i === h || dt == null) S.sunLocal[i].copy(v); else S.sunLocal[i].lerp(v, 1 - Math.exp(-dt / 0.3)).normalize(); }
+      const st = info.stars[i], sp = S.world.sim.stars[i];
+      out.push({ dir: raw ? v : S.sunLocal[i].clone(), col: sp.color, vis: Math.min(2.2, Math.pow(st.flux, 0.45)), size: st.disk ? Math.min(0.12, st.ang * Math.PI / 360 * 2.6) : 0.003 });
+    }
+    return out;
+  }
+  function civState() {
+    const w = S.world, c = w.civ;
+    if (c) {
+      const next = AGES[c.age + 1], frac = next ? (c.years - AGES[c.age].y) / (next.y - AGES[c.age].y) : (c.years - AGES[8].y) / (CIV_END - AGES[8].y);
+      return { age: c.age, frac: Math.max(0, Math.min(1, frac)), alive: true, dehyd: c.dehyd, ruins: false, seed: c.seed, id: c.id };
+    }
+    const r = w.ruins || { age: 0, seed: 1, burned: false };
+    return { age: r.age, frac: 0, alive: false, dehyd: false, ruins: true, burned: r.burned, seed: r.seed, id: -1 };
+  }
+  function syncCity(force) {
+    const st = civState();
+    city.setLayout(st.seed);
+    city.refresh(st);
+  }
+
+  // ---------- 主迴圈 ----------
+  let last = performance.now(), frames = 0, fpsAcc = 0, fpsLow = 0;
+  function loop(now) {
+    requestAnimationFrame(loop);
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    const w = S.world;
+    if (S.playing) {
+      let simDt = effSpeed() * dt;
+      const budget = 22; // 毫秒
+      const maxDt = budget / 1000 / Math.max(1e-6, S.costPerYr);
+      S.limited = simDt > maxDt; if (S.limited) simDt = maxDt;
+      const t0 = performance.now();
+      w.advance(simDt, S.twin);
+      const el = (performance.now() - t0) / 1000;
+      if (simDt > 0.002) S.costPerYr = S.costPerYr * 0.9 + (el / simDt) * 0.1;
+      S.clock += dt * 2 * Math.PI / 45;
+      if (w.sim.t - S.snaps[S.snaps.length - 1].t >= S.snapEvery) { S.snaps.push({ t: w.sim.t, s: w.snapshot() }); if (S.snaps.length > 6000) S.snaps.splice(1, 1); }
+      if (S.twin) trackTwin();
+      S.skyAcc = (S.skyAcc || 0) + dt;
+      if (S.skyAcc > 0.06) { S.skyAcc = 0; const ls = localSuns(null, true); ls.forEach((x, i) => { const tr = S.skyTr[i]; tr.push([Math.atan2(x.dir.x, -x.dir.z), Math.asin(Math.max(-1, Math.min(1, x.dir.y)))]); if (tr.length > 320) tr.shift(); }); }
+    }
+    if (S.pendingCity) { S.pendingCity -= dt; if (S.pendingCity <= 0 || spaceCam.dist < PLANET_R * 1.5) { S.pendingCity = 0; enterCity(); } }
+    const civ = civState();
+    if (S.view === 'space') {
+      space.paintPlanet(w.T); space.paintLights(civ.age, civ.seed, civ.alive && !civ.dehyd);
+      const info = w.info, uh = info.stars[info.host].u;
+      space.spin = -(Math.atan2(uh[1], uh[0]) + S.clock) + Math.PI;
+      space.update(dt, w, spaceCam, S.twin, { lights: civ.alive && !civ.dehyd ? 1 : 0 });
+      spaceCam.update(dt, space.camera, new THREE.Vector3(0, 0, 0));
+      renderer.render(space.scene, space.camera);
+      updateLabels();
+    } else {
+      syncCity();
+      city.update(dt, cityCam, { suns: localSuns(dt), T: w.T, alive: civ.alive, dehyd: civ.dehyd, burned: civ.burned });
+      renderer.render(city.scene, city.camera);
+      lblEls.forEach(l => l.style.display = 'none');
+    }
+    S.uiT += dt; if (S.uiT > 0.12) { S.uiT = 0; renderPanels(); }
+    S.conceptT += dt; if (S.teach && S.conceptT > 1.5) { S.conceptT = 0; autoConcept(); }
+    // 自動降低畫質
+    frames++; fpsAcc += dt;
+    if (fpsAcc > 2) { const fps = frames / fpsAcc; frames = 0; fpsAcc = 0; if (fps < 32) fpsLow++; else fpsLow = 0; if (fpsLow >= 2 && renderer.getPixelRatio() > 1) { renderer.setPixelRatio(1); resize(); fpsLow = 0; } }
+  }
+
+  // ---------- 雙胞胎（混沌實驗） ----------
+  function startTwin() {
+    const tw = S.world.sim.clone(); tw.sp[3] += S.twinDelta; S.twin = tw; S.twinStart = S.world.sim.t; S.div = []; S.divSplit = null;
+    space.twinTrails.forEach(t => { t.head = 0; t.count = 0; t.last = null; });
+    updateTwinBtn(); toast('雙胞胎宇宙已建立：太陽乙的位置只差 ' + S.twinDelta.toExponential(0) + ' AU。', 'yellow');
+  }
+  function trackTwin() {
+    const a = S.world.sim, b = S.twin; let d = 0;
+    for (let i = 0; i < 9; i += 3) d = Math.max(d, Math.hypot(a.sp[i] - b.sp[i], a.sp[i + 1] - b.sp[i + 1], a.sp[i + 2] - b.sp[i + 2]));
+    const t = a.t - S.twinStart;
+    if (!S.div.length || t - S.div[S.div.length - 1][0] > 0.05) S.div.push([t, Math.log10(Math.max(d, 1e-14))]);
+    if (!S.divSplit && d > 1) { S.divSplit = t; toast(`兩個宇宙在 ${t.toFixed(1)} 年後分道揚鑣：恆星位置差距超過 1 AU。`, 'red', 8000); }
+  }
+  function updateTwinBtn() { $('twinBtn').textContent = S.twin ? '停止實驗' : '開始雙胞胎實驗'; }
+  $('twinBtn').onclick = () => { if (S.twin) { S.twin = null; updateTwinBtn(); } else startTwin(); };
+  $('deltaSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.twinDelta = +b.dataset.d; [...$('deltaSeg').children].forEach(x => x.classList.toggle('on', x === b)); });
+
+  // ---------- 標籤 ----------
+  const lblEls = [];
+  function updateLabels() {
+    const box = $('labels'), w = S.world, s = w.sim, info = w.info;
+    if (!lblEls.length) for (let i = 0; i < 4; i++) { const d = document.createElement('div'); d.className = 'lbl' + (i === 3 ? ' pl' : ''); box.appendChild(d); lblEls.push(d); }
+    const W = innerWidth, H = innerHeight, v = new THREE.Vector3();
+    for (let i = 0; i < 4; i++) {
+      const el = lblEls[i];
+      if (i < 3) { v.copy(space.starObjs[i].pos); el.innerHTML = `<b>${w.starName(i)}</b><span>${info.stars[i].d.toFixed(info.stars[i].d < 10 ? 2 : 1)} AU</span>`; }
+      else { v.copy(space.planetPos); el.innerHTML = `<b>三體行星</b><span>${Math.round(w.T)}°C</span>`; }
+      v.project(space.camera);
+      const vis = v.z < 1 && Math.abs(v.x) < 1.1 && Math.abs(v.y) < 1.1 && !(i === 3 && spaceCam.dist < PLANET_R * 6);
+      el.style.display = vis ? 'block' : 'none';
+      if (vis) el.style.transform = `translate(${((v.x + 1) / 2 * W + 12).toFixed(1)}px, ${((1 - v.y) / 2 * H - 8).toFixed(1)}px)`;
+    }
+  }
+
+  // ---------- 面板 ----------
+  const EV_ORDER = ['sanri', 'shuangri', 'lianzhu', 'feixingStill', 'twoFly', 'threeFly', 'night'];
+  $('evGrid').innerHTML = EV_ORDER.map(k => `<div class="ev ${EVENT_DEFS[k].c}" id="ev-${k}"><i></i>${EVENT_DEFS[k].n}</div>`).join('');
+  $('segs').innerHTML = AGES.map(() => '<i><b></b></i>').join('');
+  function renderPanels() {
+    const w = S.world, info = w.info, s = w.sim, c = w.civ;
+    // 紀元
+    const st = w.era === 'stable';
+    $('eraName').textContent = st ? '恆紀元' : '亂紀元'; $('eraName').classList.toggle('chaos', !st);
+    $('eraDur').textContent = `已持續 ${(s.t - w.eraSince).toFixed(1)} 年`;
+    const hostTxt = info.circumbinary ? '繞' + info.group.map(i => w.starName(i).slice(2)).join('') + '多星系統' : '繞' + w.starName(info.host);
+    $('orbitLine').textContent = info.bound
+      ? `${hostTxt}運行 · 半長軸 ${info.a.toFixed(2)} AU · 離心率 ${info.e.toFixed(2)} · 擾動 ${(info.pert * 100).toFixed(1)}%`
+      : `未被任何太陽穩定捕獲 · 擾動 ${(info.pert * 100).toFixed(1)}%`;
+    EV_ORDER.forEach(k => $('ev-' + k).classList.toggle('on', !!info.flags[k]));
+    // 行星
+    const T = w.T, x = v => ((Math.max(-200, Math.min(400, v)) + 200) / 600 * 100) + '%';
+    $('tVal').textContent = Math.round(T);
+    $('tVal').style.color = T < -35 ? 'var(--blue)' : T > 65 ? 'var(--red)' : T < -10 || T > 40 ? 'var(--yellow)' : 'var(--green)';
+    const tag = $('habTag');
+    const [tt, tc] = T < -120 ? ['極寒', 'b'] : T < -35 ? ['嚴寒', 'b'] : T > 140 ? ['烈焰', 'r'] : T > 65 ? ['酷熱', 'r'] : (T < -10 || T > 40) ? ['勉強可居', 'y'] : ['宜居', 'g'];
+    tag.textContent = tt; tag.className = 'pill ' + tc;
+    $('tMk').style.left = x(T); $('tEq').style.left = x(info.Teq);
+    $('tHab').style.left = x(-10); $('tHab').style.width = (50 / 600 * 100) + '%';
+    $('rS').textContent = info.S.toFixed(info.S < 0.1 ? 3 : 2) + '× 地球';
+    $('rTeq').textContent = Math.round(info.Teq) + ' °C';
+    $('rYear').textContent = isFinite(info.period) ? info.period.toFixed(2) + ' 地球年' : '無週期';
+    $('rTide').textContent = info.tide.toExponential(1) + ' 倍';
+    // 太陽
+    const maxF = Math.max(...info.stars.map(x => x.flux));
+    $('sunList').innerHTML = info.stars.map((x, i) => {
+      const col = s.stars[i].color.map(v => Math.round(v * 255)).join(',');
+      const isHost = i === info.host || (info.circumbinary && info.group.includes(i));
+      const pct = Math.max(2, (Math.log10(x.flux) + 5) / (Math.log10(Math.max(maxF, 1)) + 5) * 100);
+      return `<div class="sun"><span class="dot" style="background:rgb(${col});box-shadow:0 0 ${x.disk ? 10 : 3}px rgb(${col})"></span>
+        <span class="nm">${w.starName(i)}${isHost ? '<em>· 宿主</em>' : ''}</span>
+        <span class="tag ${x.disk ? '' : 'fly'}">${x.disk ? '日面 ' + x.ang.toFixed(2) + '°' : '飛星'}</span>
+        <span class="meta">${x.d.toFixed(x.d < 10 ? 2 : 1)} AU<span class="bar"><b style="width:${pct.toFixed(0)}%;background:rgb(${col})"></b></span>${x.flux >= 0.01 ? x.flux.toFixed(2) : x.flux.toExponential(1)}×</span></div>`;
+    }).join('');
+    // 文明
+    if (c) {
+      $('civNo').textContent = c.id;
+      const p = $('civState'); p.textContent = c.dehyd ? '脫水中' : '活動中'; p.className = 'pill ' + (c.dehyd ? 'b' : 'g');
+      $('civAge').textContent = AGES[c.age].n;
+      $('civDesc').textContent = c.dehyd ? '全體脫水，儲存在乾燥倉庫中，等待恆紀元到來時浸泡復活。' : AGES[c.age].d;
+      const nx = AGES[c.age + 1];
+      $('rNext').textContent = nx ? `${nx.n}（${nx.y} 文明年）` : `星際遠航（${CIV_END} 文明年）`;
+      $('rCivY').textContent = c.years.toFixed(1) + ' 年';
+      const rate = c.dehyd ? 0 : (T > -10 && T < 40 ? 1 : T > -30 && T < 58 ? 0.4 : 0) * (w.era === 'chaos' ? 0.5 : 1);
+      $('rRate').textContent = '×' + rate.toFixed(rate === 1 || rate === 0 ? 0 : 1);
+      $('rDehyd').textContent = c.dehydCount;
+    } else {
+      const last = w.history[w.history.length - 1];
+      $('civNo').textContent = last ? last.id : '—';
+      const p = $('civState'); p.textContent = last && last.kind === 'win' ? '已遠航' : '已毀滅'; p.className = 'pill ' + (last && last.kind === 'win' ? 'g' : 'r');
+      $('civAge').textContent = last ? '曾達' + AGES[last.age].n : '—';
+      $('civDesc').textContent = last ? (last.kind === 'win' ? '艦隊已離開。母星等待下一個恆紀元，新的生命會再度萌芽。' : `${last.reason}。等待恆紀元穩定後，新的文明會重新萌芽。`) : '';
+      $('rNext').textContent = '等待恆紀元'; $('rCivY').textContent = '—'; $('rRate').textContent = '—'; $('rDehyd').textContent = last ? last.dehyd : '—';
+    }
+    $('rHist').textContent = w.history.length;
+    const segs = $('segs').children, cs = civState();
+    for (let i = 0; i < 9; i++) { const f = !c ? 0 : i < cs.age ? 1 : i === cs.age ? Math.max(0.04, cs.frac) : 0; segs[i].firstChild.style.transform = `scaleX(${f})`; segs[i].firstChild.style.background = c && c.dehyd ? 'var(--blue)' : 'var(--yellow)'; }
+    $('goCity').classList.toggle('on', S.view === 'city');
+    // 年份
+    $('yrV').textContent = `第 ${s.t.toFixed(1)} 年`;
+    updateSpeedLabel();
+    drawTimeline(); drawSky(); drawPlanetThumb(); drawDiv();
+    if (S.view === 'city') $('cityHud').textContent = `當地時間 ${hourStr()} · 建築 ${city.m.tower.count + city.m.house.count + city.m.hut.count + city.m.factory.count} · 樹 ${city.m.tree.count} · 車 ${city.m.car.count} · 行人 ${city.m.person.count}`;
+    sound.setCold(Math.max(0, Math.min(1, (-10 - T) / 80)));
+    if (w.events.length !== S.lastEventSeen) { S.lastEventSeen = w.events.length; }
+  }
+  function hourStr() { let h = ((S.clock / (2 * Math.PI)) * 24 + 12) % 24; if (h < 0) h += 24; const m = Math.floor((h % 1) * 60); return String(Math.floor(h)).padStart(2, '0') + ':' + String(m).padStart(2, '0'); }
+
+  function renderChron() {
+    const w = S.world, list = $('chronList'), H = w.history.slice().reverse();
+    const rows = [];
+    if (w.civ) rows.push(`<li><span class="no">${w.civ.id}</span><span class="a">${AGES[w.civ.age].n}</span><span class="y">進行中</span><span class="why">第 ${w.civ.startT.toFixed(0)} 年誕生${w.civ.dehydCount ? '，脫水 ' + w.civ.dehydCount + ' 次' : ''}</span></li>`);
+    H.forEach(h => rows.push(`<li><span class="no">${h.id}</span><span class="a">${AGES[h.age].n}</span><span class="y">${h.years.toFixed(1)} 年</span><span class="why ${h.kind === 'win' ? 'green' : 'red'}">${h.kind === 'win' ? '飛出三體星系' : h.reason}</span></li>`));
+    list.innerHTML = rows.join('') || '<li class="empty">尚無紀錄</li>';
+    const all = w.history.concat(w.civ ? [{ age: w.civ.age, years: w.civ.years }] : []);
+    $('stTotal').textContent = w.civCounter;
+    $('stBest').textContent = all.length ? AGES[Math.max(...all.map(h => h.age))].n.replace('時代', '') : '—';
+    $('stLong').textContent = all.length ? Math.max(...all.map(h => h.years)).toFixed(0) : 0;
+  }
+
+  // ---------- 小圖 ----------
+  function prep(cv) { const r = cv.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio); if (r.width < 2) return null; const W = Math.round(r.width * dpr), H = Math.round(r.height * dpr); if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; } const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); return { g, w: r.width, h: r.height }; }
+  function sizeCanvases() { ['skyMap', 'planetThumb', 'divChart', 'tlCanvas'].forEach(id => { const c = $(id); c.width = 0; }); }
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  function drawSky() {
+    const P = prep($('skyMap')); if (!P) return; const { g, w: W, h: H } = P, w = S.world;
+    g.fillStyle = '#0c0f1a'; g.fillRect(0, 0, W, H);
+    g.strokeStyle = 'rgba(106,184,255,.10)'; g.lineWidth = 1;
+    for (let k = 1; k < 12; k++) { g.beginPath(); g.moveTo(k * W / 12, 0); g.lineTo(k * W / 12, H); g.stroke(); }
+    for (let k = 1; k < 6; k++) { g.beginPath(); g.moveTo(0, k * H / 6); g.lineTo(W, k * H / 6); g.stroke(); }
+    g.fillStyle = 'rgba(30,36,52,.55)'; g.fillRect(0, H / 2, W, H / 2);
+    g.strokeStyle = 'rgba(255,204,68,.35)'; g.setLineDash([3, 4]); g.beginPath(); g.moveTo(0, H / 2); g.lineTo(W, H / 2); g.stroke(); g.setLineDash([]);
+    g.fillStyle = '#5b6380'; g.font = '9.5px "Noto Sans TC",sans-serif'; ['北', '東', '南', '西'].forEach((d, k) => g.fillText(d, (k + 0.5) / 4 * W + (k === 0 ? -W / 8 + 4 : -4), H - 4));
+    const X = l => (l + Math.PI) / (2 * Math.PI) * W, Y = b => (0.5 - b / Math.PI) * H;
+    for (let i = 0; i < 3; i++) {
+      const tr = S.skyTr[i], c = w.sim.stars[i].color.map(v => Math.round(v * 255)).join(',');
+      g.lineWidth = 1.4;
+      for (let k = 1; k < tr.length; k++) {
+        if (Math.abs(tr[k][0] - tr[k - 1][0]) > Math.PI) continue;
+        g.strokeStyle = `rgba(${c},${(k / tr.length * 0.8).toFixed(2)})`;
+        g.beginPath(); g.moveTo(X(tr[k - 1][0]), Y(tr[k - 1][1])); g.lineTo(X(tr[k][0]), Y(tr[k][1])); g.stroke();
+      }
+      const st = w.info.stars[i], cur = tr[tr.length - 1] || [0, 0], x = X(cur[0]), y = Y(cur[1]);
+      if (st.disk) {
+        const r = Math.max(3, Math.min(10, st.ang * 9));
+        const gr = g.createRadialGradient(x, y, 0, x, y, r * 2.6); gr.addColorStop(0, `rgba(${c},.55)`); gr.addColorStop(1, `rgba(${c},0)`);
+        g.fillStyle = gr; g.beginPath(); g.arc(x, y, r * 2.6, 0, 7); g.fill();
+        g.fillStyle = `rgb(${c})`; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+      } else { g.strokeStyle = `rgb(${c})`; g.lineWidth = 1.2; g.beginPath(); g.moveTo(x - 5, y); g.lineTo(x + 5, y); g.moveTo(x, y - 5); g.lineTo(x, y + 5); g.stroke(); }
+      g.fillStyle = '#dde3f5'; g.font = '10px "Noto Sans TC",sans-serif'; g.fillText(w.starName(i).slice(2) + (st.disk ? '' : '・飛星'), x + 8, y - 6);
+    }
+  }
+  function drawPlanetThumb() {
+    const P = prep($('planetThumb')); if (!P) return; const { g, w: W, h: H } = P, w = S.world, info = w.info;
+    g.fillStyle = '#05070d'; g.fillRect(0, 0, W, H);
+    const cx = W * 0.42, cy = H * 0.52, R = Math.min(W, H) * 0.36, T = w.T;
+    const sn = Math.max(0, Math.min(1, (-T - 5) / 70)), ht = Math.max(0, Math.min(1, (T - 40) / 110));
+    const base = [40 + ht * 120 + sn * 180, 90 - ht * 20 + sn * 140, 130 - ht * 80 + sn * 110].map(v => Math.round(Math.min(240, v)));
+    g.save(); g.beginPath(); g.arc(cx, cy, R, 0, 7); g.clip();
+    g.fillStyle = `rgb(${base})`; g.fillRect(cx - R, cy - R, 2 * R, 2 * R);
+    const r = mulberry32(S.seed);
+    for (let k = 0; k < 9; k++) { g.fillStyle = `rgba(${[70 + ht * 90 + sn * 160, 110 + sn * 120, 60 + sn * 170].map(Math.round)},.85)`; g.beginPath(); g.ellipse(cx + (r() - 0.5) * R * 1.6, cy + (r() - 0.5) * R * 1.4, R * (0.15 + r() * 0.3), R * (0.1 + r() * 0.2), r() * 3, 0, 7); g.fill(); }
+    // 晝夜：依各太陽方向疊光
+    let lx = 0, ly = 0, tot = 0;
+    info.stars.forEach(s => { const k = Math.min(1.5, Math.pow(s.flux, 0.4)); lx += s.u[0] * k; ly += s.u[1] * k; tot += k; });
+    const ang = Math.atan2(-ly, lx), lit = Math.min(1, tot);
+    const gr = g.createLinearGradient(cx + Math.cos(ang) * R, cy + Math.sin(ang) * R, cx - Math.cos(ang) * R, cy - Math.sin(ang) * R);
+    gr.addColorStop(0, `rgba(0,0,0,${0.05 + (1 - lit) * 0.5})`); gr.addColorStop(0.48, `rgba(0,0,0,${0.15 + (1 - lit) * 0.5})`); gr.addColorStop(0.62, 'rgba(0,0,4,.88)'); gr.addColorStop(1, 'rgba(0,0,6,.95)');
+    g.fillStyle = gr; g.fillRect(cx - R, cy - R, 2 * R, 2 * R);
+    const cs = civState();
+    if (cs.alive && !cs.dehyd) {
+      const n = [6, 14, 24, 40, 70, 120, 170, 220, 260][cs.age], r2 = mulberry32(cs.seed);
+      for (let k = 0; k < n; k++) {
+        const a = r2() * 6.28, d = Math.sqrt(r2()) * R * 0.95, x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d;
+        const side = (x - cx) * Math.cos(ang) + (y - cy) * Math.sin(ang);
+        if (side < R * 0.1) { g.fillStyle = cs.age >= 5 ? 'rgba(255,220,150,.9)' : 'rgba(255,170,80,.8)'; g.fillRect(x, y, 1.4, 1.4); }
+      }
+    }
+    g.restore();
+    const ag = g.createRadialGradient(cx, cy, R * 0.95, cx, cy, R * 1.12); ag.addColorStop(0, 'rgba(106,184,255,.35)'); ag.addColorStop(1, 'rgba(106,184,255,0)');
+    g.fillStyle = ag; g.beginPath(); g.arc(cx, cy, R * 1.12, 0, 7); g.fill();
+    // 巨月
+    const ma = S.world.sim.t * 2.0, mx = cx + Math.cos(ma) * R * 1.7, my = cy + Math.sin(ma) * R * 0.35;
+    if (mx < W - 4) { g.fillStyle = '#9d9a94'; g.beginPath(); g.arc(mx, my, R * 0.22, 0, 7); g.fill(); g.fillStyle = 'rgba(0,0,6,.7)'; g.beginPath(); g.arc(mx - Math.cos(ang) * R * 0.08, my - Math.sin(ang) * R * 0.08, R * 0.2, 0, 7); g.fill(); }
+    g.fillStyle = '#8a93b0'; g.font = '10px "Noto Sans TC",sans-serif'; g.fillText('巨月', Math.min(mx, W - 26) + 4, my - R * 0.28);
+    $('planetCap').textContent = T > 140 ? '地表正在燃燒，海洋大量蒸發。' : T > 65 ? '酷熱：海平面下降，陸地乾裂。' : T < -60 ? '整顆行星冰封，海洋結成冰原。' : T < -10 ? '嚴寒：冰帽向赤道擴張。' : cs.alive && !cs.dehyd ? '海洋與陸地分明，夜面亮著城市燈火。' : '海洋與陸地分明，夜面一片黑暗。';
+  }
+  function drawDiv() {
+    const P = prep($('divChart')); if (!P) return; const { g, w: W, h: H } = P;
+    g.fillStyle = '#0c0f1a'; g.fillRect(0, 0, W, H);
+    const pad = 28, tMax = Math.max(20, S.div.length ? S.div[S.div.length - 1][0] * 1.1 : 20);
+    const X = t => pad + t / tMax * (W - pad - 8), Y = v => 8 + (2 - v) / 14 * (H - 26);
+    g.font = '9.5px "IBM Plex Mono",monospace'; g.fillStyle = '#5b6380'; g.strokeStyle = 'rgba(106,184,255,.08)';
+    [-12, -9, -6, -3, 0].forEach(v => { g.beginPath(); g.moveTo(pad, Y(v)); g.lineTo(W - 8, Y(v)); g.stroke(); g.fillText('1e' + v, 2, Y(v) + 3); });
+    g.strokeStyle = 'rgba(255,93,108,.5)'; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(pad, Y(0)); g.lineTo(W - 8, Y(0)); g.stroke(); g.setLineDash([]);
+    g.fillStyle = '#ff9aa4'; g.fillText('1 AU', W - 40, Y(0) - 4);
+    g.fillStyle = '#5b6380'; g.fillText('0', pad, H - 4); g.fillText(tMax.toFixed(0) + ' 年', W - 44, H - 4);
+    if (S.div.length > 1) {
+      g.strokeStyle = '#ff7ad9'; g.lineWidth = 1.6; g.beginPath();
+      S.div.forEach(([t, v], i) => { const x = X(t), y = Y(Math.max(-14, Math.min(2, v))); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke();
+      const lastV = S.div[S.div.length - 1];
+      $('divCap').textContent = S.divSplit ? `分道揚鑣於第 ${S.divSplit.toFixed(1)} 年。之後兩個宇宙的恆星位置已毫無關聯。` : `經過 ${lastV[0].toFixed(1)} 年，差距約 ${Math.pow(10, lastV[1]).toExponential(1)} AU。誤差每隔一段時間就放大十倍。`;
+    }
+  }
+  // 時間軸
+  function tlRange() { return Math.max(30, S.world.sim.t * 1.04); }
+  function drawTimeline() {
+    const P = prep($('tlCanvas')); if (!P) return; const { g, w: W, h: H } = P, w = S.world, tMax = tlRange();
+    const X = t => t / tMax * W;
+    g.clearRect(0, 0, W, H);
+    // 紀元帶
+    let era = 'stable', t0 = 0;
+    const band = (a, b, e) => { g.fillStyle = e === 'stable' ? 'rgba(61,255,160,.22)' : 'rgba(255,93,108,.3)'; g.fillRect(X(a), H * 0.38, Math.max(1, X(b) - X(a)), 6); };
+    for (const e of w.events) { if (e.key === 'eraStable' || e.key === 'eraChaos') { band(t0, e.t, era); era = e.key === 'eraStable' ? 'stable' : 'chaos'; t0 = e.t; } }
+    band(t0, w.sim.t, era);
+    // 文明帶
+    let c0 = null;
+    for (const e of w.events) { if (e.key === 'civStart') c0 = e.t; if ((e.key === 'civEnd' || e.key === 'civWin') && c0 !== null) { g.fillStyle = 'rgba(255,204,68,.35)'; g.fillRect(X(c0), H * 0.38 + 9, X(e.t) - X(c0), 3); c0 = null; } }
+    if (c0 !== null) { g.fillStyle = 'rgba(255,204,68,.35)'; g.fillRect(X(c0), H * 0.38 + 9, X(w.sim.t) - X(c0), 3); }
+    // 事件標記
+    const colors = { red: '#ff5d6c', green: '#3dffa0', yellow: '#ffcc44', blue: '#6ab8ff' };
+    S.tlMarks = [];
+    for (const e of w.events) {
+      const big = e.key === 'civEnd' || e.key === 'civWin' || e.key === 'reset';
+      const mid = e.key === 'sanri' || e.key === 'lianzhu' || e.key === 'age';
+      if (!big && !mid) continue;
+      const x = X(e.t); g.fillStyle = colors[e.color] || '#dde3f5';
+      if (big) g.fillRect(x - 1, 2, 2, H * 0.38 - 2); else { g.beginPath(); g.arc(x, H * 0.24, 2.2, 0, 7); g.fill(); }
+      S.tlMarks.push({ x, e });
+    }
+    // 刻度
+    g.fillStyle = '#5b6380'; g.font = '9.5px "IBM Plex Mono",monospace';
+    const step = [5, 10, 20, 50, 100, 200, 500].find(s => tMax / s < 9) || 1000;
+    for (let t = 0; t <= tMax; t += step) { g.fillRect(X(t), H - 13, 1, 4); g.fillText(t, X(t) + 2, H - 2); }
+    // 目前位置
+    g.fillStyle = '#ffffff'; g.fillRect(X(w.sim.t) - 1, 0, 2, H - 12);
+  }
+  const tlc = $('tlCanvas');
+  tlc.addEventListener('click', e => { const r = tlc.getBoundingClientRect(), t = (e.clientX - r.left) / r.width * tlRange(); if (t < S.world.sim.t - 0.1) seekTo(t); });
+  tlc.addEventListener('mousemove', e => {
+    const r = tlc.getBoundingClientRect(), x = e.clientX - r.left, tip = $('tlTip');
+    const m = (S.tlMarks || []).reduce((b, k) => Math.abs(k.x - x) < Math.abs((b ? b.x : 1e9) - x) ? k : b, null);
+    const t = x / r.width * tlRange();
+    if (m && Math.abs(m.x - x) < 6) tip.innerHTML = `<b>第 ${m.e.t.toFixed(1)} 年</b><br>${m.e.text}`;
+    else tip.innerHTML = t < S.world.sim.t ? `點擊回到第 ${t.toFixed(1)} 年` : '未來尚未發生';
+    tip.style.display = 'block'; tip.style.left = (e.clientX - $('tl').getBoundingClientRect().left) + 'px';
+  });
+  tlc.addEventListener('mouseleave', () => $('tlTip').style.display = 'none');
+  $('prevEv').onclick = () => {
+    const t = S.world.sim.t, ev = S.world.events.filter(e => ['eraChaos', 'eraStable', 'civEnd', 'civWin', 'sanri', 'lianzhu', 'age'].includes(e.key) && e.t < t - 1.5);
+    if (ev.length) seekTo(Math.max(0, ev[ev.length - 1].t - 1)); else toast('之前沒有重大事件。', 'blue', 3000);
+  };
+
+  // ---------- 教學概念 ----------
+  function showConcept(key) {
+    const c = CONCEPTS[key]; if (!c) return;
+    $('cpT').textContent = c.t; $('cpP').textContent = c.p; $('cpQ').textContent = c.q ? '想一想：' + c.q : '';
+    document.querySelector('#concept .k').textContent = '課堂概念 · ' + c.k; S.conceptKey = key;
+  }
+  function autoConcept() {
+    const w = S.world, f = w.info.flags; let k;
+    if (S.view === 'city' && S.cityMode === 'c-pend') k = 'pendulum';
+    else if (f.lianzhu) k = 'lianzhu'; else if (f.sanri) k = 'sanri'; else if (f.night) k = 'night';
+    else if (w.civ && w.civ.dehyd) k = 'dehyd';
+    else if (S.twin) k = 'chaosTheory';
+    else if (w.era === 'chaos') k = Math.abs(w.T - w.info.Teq) > 25 ? 'thermal' : 'chaos';
+    else if (S.presetKey === 'eight') k = 'eight';
+    else if (f.twoFly) k = 'fly';
+    else k = ['stable', 'flux', 'hz'][Math.floor(w.sim.t / 12) % 3];
+    if (k !== S.conceptKey) showConcept(k);
+  }
+  function openModal(html) { $('mBody').innerHTML = html; $('modal').hidden = false; $('mClose').focus(); }
+  $('mClose').onclick = () => $('modal').hidden = true;
+  $('modal').addEventListener('click', e => { if (e.target === $('modal')) $('modal').hidden = true; });
+  document.addEventListener('click', e => {
+    const b = e.target.closest('.i'); if (!b) return;
+    const map = { era: ['era', 'chaos'], flux: ['flux', 'thermal', 'hz'], fly: ['fly', 'sanri', 'lianzhu', 'night'], dehyd: ['dehyd', 'chron'], sky: ['sky'], chron: ['chron'], chaos: ['chaosTheory'] };
+    openModal((map[b.dataset.c] || []).map(k => { const c = CONCEPTS[k]; return `<div class="k">${c.k}</div><h2>${c.t}</h2><p>${c.p}</p>${c.q ? `<p class="q">課堂提問：${c.q}</p>` : ''}`; }).join('<hr style="border:0;border-top:1px solid var(--line-soft);margin:18px 0">'));
+  });
+  function helpHTML() {
+    return `<div class="k">BLACK BEAR OBSERVATORY</div><h2>怎麼操作</h2>
+    <table><tr><td>旋轉視角</td><td>拖曳畫面（手機單指）</td></tr><tr><td>縮放</td><td>滾輪（手機雙指）</td></tr>
+    <tr><td>進入城市</td><td>選「行星」後一直放大，或按「近看城市」</td></tr><tr><td>回到過去</td><td>點時間軸上任何過去的時刻</td></tr></table>
+    <p style="margin-top:14px">鍵盤快捷鍵：<kbd>空白</kbd> 播放／暫停、<kbd>[</kbd> <kbd>]</kbd> 調整速度、<kbd>1</kbd>–<kbd>5</kbd> 切換觀察目標、<kbd>C</kbd> 城市、<kbd>V</kbd> 太空、<kbd>H</kbd> 宜居帶、<kbd>T</kbd> 教學模式、<kbd>M</kbd> 聲音。</p>
+    <h2 style="margin-top:18px;font-size:18px">模擬了什麼</h2>
+    <ul><li>三顆恆星與行星用真實的牛頓萬有引力逐步計算（自適應步長的蛙跳積分）。</li>
+    <li>恆星亮度依質量估算（L ≈ M⁴），日照依距離平方反比，溫度用輻射平衡加上海洋熱慣性。</li>
+    <li>恆紀元的判定：行星被一顆（或一組靠很近的）太陽穩定捕獲、軌道接近圓形、其他恆星的擾動小於 6%。</li>
+    <li>文明、脫水、巨擺、三日凌空等設定改編自劉慈欣《三體》，數值為教學用的簡化。</li></ul>
+    <p class="q">教學模式會依照畫面上正在發生的事，自動顯示對應的概念與課堂提問。</p>`;
+  }
+
+  // ---------- 控制項 ----------
+  $('preset').innerHTML = Object.entries(PRESETS).map(([k, p]) => `<option value="${k}">${p.name}・${p.tag}</option>`).join('');
+  $('preset').onchange = e => newWorld(e.target.value, S.presetKey === 'random' ? S.seed : 1 + Math.floor(Math.random() * 9999));
+  $('play').onclick = () => setPlaying(!S.playing);
+  $('speed').oninput = e => setSpeed(speedFromSlider(+e.target.value));
+  $('restart').onclick = () => newWorld(S.presetKey, S.seed);
+  $('newsys').onclick = () => { const k = S.presetKey === 'solar' || S.presetKey === 'eight' ? 'random' : S.presetKey; $('preset').value = k; newWorld(k, 1 + Math.floor(Math.random() * 99999)); };
+  $('teach').onclick = () => { S.teach = !S.teach; document.body.classList.toggle('teach', S.teach); $('teach').classList.toggle('on', S.teach); $('teach').setAttribute('aria-pressed', S.teach); if (S.teach) { S.conceptKey = null; autoConcept(); } };
+  $('snd').onclick = () => { const on = !sound.on; sound.setOn(on); sound.setEra(S.world.era, true); $('snd').classList.toggle('on', on); $('snd').setAttribute('aria-pressed', on); };
+  $('help').onclick = () => openModal(helpHTML());
+  $('goCity').onclick = () => goCityFromSpace();
+  $('goSpace').onclick = () => { if (S.view === 'city') exitCity(); else focusSpace('com'); };
+  document.querySelectorAll('.rtabs button').forEach(b => b.onclick = () => {
+    document.querySelectorAll('.rtabs button').forEach(x => x.classList.toggle('on', x === b));
+    document.querySelectorAll('#pR .card').forEach(c => c.classList.toggle('show', c.id === b.dataset.r));
+    if (b.dataset.r === 'cChron') renderChron();
+  });
+  // 手機分頁
+  const MT = [['cEra', '紀元'], ['cPlanet', '行星'], ['cSuns', '太陽'], ['cCiv', '文明'], ['cObs', '觀測'], ['cChron', '編年史'], ['cChaos', '混沌']];
+  $('mtabs').innerHTML = MT.map(([id, n]) => `<button data-m="${id}">${n}</button>`).join('');
+  function setMTab(id, toggle) {
+    if (toggle && id === S.mtab && !document.body.classList.contains('sheet-closed')) { document.body.classList.add('sheet-closed'); [...$('mtabs').children].forEach(b => b.classList.remove('on')); return; }
+    document.body.classList.remove('sheet-closed'); S.mtab = id;
+    [...$('mtabs').children].forEach(b => b.classList.toggle('on', b.dataset.m === id));
+    document.querySelectorAll('.card').forEach(c => c.classList.toggle('mon', c.id === id));
+    $('pL').classList.toggle('mshow', !!$('pL').querySelector('#' + id)); $('pR').classList.toggle('mshow', !!$('pR').querySelector('#' + id));
+    if (id === 'cChron') renderChron();
+    sizeCanvases();
+  }
+  $('mtabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setMTab(b.dataset.m, true); });
+  addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+    if (!$('start').hidden && e.key !== 'Enter') return;
+    const k = e.key.toLowerCase();
+    if (k === ' ') { e.preventDefault(); setPlaying(!S.playing); }
+    else if (k === '[') setSpeed(S.speed / 1.5); else if (k === ']') setSpeed(S.speed * 1.5);
+    else if (k === 'c') goCityFromSpace(); else if (k === 'v') { if (S.view === 'city') exitCity(); }
+    else if (k === 'h') { space.showHZ = !space.showHZ; renderFocusBar(); }
+    else if (k === 't') $('teach').click(); else if (k === 'm') $('snd').click();
+    else if (k === 'escape') $('modal').hidden = true;
+    else if (k === 'enter' && !$('start').hidden) $('startBtn').click();
+    else if ('12345'.includes(k) && k.length === 1) focusSpace(['com', 'star0', 'star1', 'star2', 'planet'][+k - 1]);
+  });
+  addEventListener('resize', resize);
+
+  // ---------- 啟動 ----------
+  $('preset').value = 'chaos';
+  setSpeed(1.5);
+  newWorld('chaos', 1);
+  // 開場選擇模式：背景先慢慢轉，選好再開始
+  setPlaying(false); spaceCam.autoSpin = 0.05; $('toasts').innerHTML = '';
+  let pick = 'chaos', aud = 'show';
+  $('startModes').innerHTML = Object.entries(PRESETS).map(([k, p]) => `<button class="mode${k === pick ? ' on' : ''}" data-k="${k}"><span class="tg">${p.tag}</span><b>${p.name}</b><p>${p.desc}</p></button>`).join('');
+  $('startModes').addEventListener('click', e => { const b = e.target.closest('.mode'); if (!b) return; pick = b.dataset.k; [...$('startModes').children].forEach(x => x.classList.toggle('on', x === b)); });
+  $('startAud').addEventListener('click', e => { const b = e.target.closest('.mode'); if (!b) return; aud = b.dataset.a; [...$('startAud').children].forEach(x => x.classList.toggle('on', x === b)); });
+  $('startBtn').onclick = () => {
+    $('start').hidden = true; spaceCam.autoSpin = 0;
+    $('preset').value = pick; newWorld(pick, pick === 'chaos' ? 1 : 1 + Math.floor(Math.random() * 99999));
+    if ((aud === 'teach') !== S.teach) $('teach').click();
+    if ($('startSnd').checked && !sound.on) $('snd').click();
+    setPlaying(true);
+  };
+  setMTab('cEra');
+  if (isMobile()) document.body.classList.add('sheet-closed');
+  resize();
+  requestAnimationFrame(loop);
+  window.__tb = { S, space, city, spaceCam, cityCam, enterCity, exitCity, focusSpace, seekTo, renderer, cityMode };
+})();
+
+</script>
+</body>
+</html>
